@@ -1,0 +1,79 @@
+// Data the Rust side pushes in and the callbacks it listens to. Each window has its own copy.
+
+export struct GameRow {
+    name: string,
+    kcal: string,
+    minutes: string,
+    share: float,
+}
+
+export struct Bar {
+    label: string,
+    text: string,
+    value: float,
+    met: bool,
+}
+
+export struct ProfileData {
+    weight: float,
+    height: float,
+    age: int,
+    female: bool,
+    goal: int,
+    right-hand: bool,
+    imperial: bool,
+    auto-start: bool,
+}
+
+export struct HrDevice {
+    id: string,
+    name: string,
+    chosen: bool,
+}
+
+// Hover and press on any control; the VR side turns these into haptic ticks.
+export global Feedback {
+    callback hover();
+    callback press();
+}
+
+export global AppState {
+    in property <float> progress;
+    in property <string> percent-text;
+    in property <string> kcal-text;
+    in property <string> goal-text;
+    in property <string> active-text;
+    in property <string> active-value;
+    in property <string> hr-text;
+    in property <string> hr-value;
+    in property <bool> hr-live;
+    in property <bool> hr-shown;
+    in property <bool> tracking;
+    in property <[GameRow]> games;
+
+    in property <[Bar]> bars;
+    in property <string> history-total;
+    in property <string> streak-text;
+    in property <[GameRow]> history-games;
+    in-out property <int> history-range: 1;
+
+    in-out property <ProfileData> profile;
+    in property <string> hr-status;
+    in property <bool> hr-scanning;
+    in property <[HrDevice]> hr-devices;
+    in property <bool> first-run;
+    in property <string> export-status;
+
+    in property <bool> cursor-visible;
+    in property <length> cursor-x;
+    in property <length> cursor-y;
+
+    callback profile-changed(ProfileData);
+    callback finish-first-run();
+    callback history-range-changed(int);
+    callback hr-scan();
+    callback hr-pick(string);
+    callback export-tcx();
+    callback export-csv();
+    callback close-panel();
+}

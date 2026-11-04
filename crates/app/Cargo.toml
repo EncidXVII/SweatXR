@@ -1,0 +1,22 @@
+[package]
+name = "fitvr"
+description = "Cross-game VR fitness tracker: SteamVR watch overlay, panel and desktop app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+fitvr-core.workspace = true
+fitvr-hr.workspace = true
+fitvr-vr.workspace = true
+fitvr-ui.workspace = true
+slint.workspace = true
+directories.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+tray-icon.workspace = true

@@ -1,0 +1,54 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest Ubuntu runners that work: the binary must run on SteamOS's glibc.
+        include:
+          - { os: windows-latest, artifact: fitvr-windows-x64, bin: fitvr.exe }
+          - { os: ubuntu-22.04, artifact: fitvr-linux-x64, bin: fitvr }
+          - { os: ubuntu-22.04-arm, artifact: fitvr-linux-arm64, bin: fitvr }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config libxkbcommon-dev libfontconfig1-dev libxml2-utils
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: TCX validates against TrainingCenterDatabase v2
+        if: runner.os == 'Linux'
+        run: |
+          curl -sSfL -o tcx.xsd https://www8.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd
+          cargo run -q -p fitvr-core --example tcx_sample > sample.tcx
+          xmllint --noout --schema tcx.xsd sample.tcx
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+      - run: cargo build --release -p fitvr
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist/fitvr
+          cp target/release/${{ matrix.bin }} LICENSE THIRD_PARTY_NOTICES.md README.md dist/fitvr/
+          if [ "$RUNNER_OS" = Linux ]; then cp scripts/install.sh dist/fitvr/; fi
+          cd dist
+          if [ "$RUNNER_OS" = Windows ]; then f=${{ matrix.artifact }}.zip; 7z a -tzip "$f" fitvr > /dev/null
+          else f=${{ matrix.artifact }}.tar.gz; tar czf "$f" fitvr; fi
+          sha256sum "$f" > "$f.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.*

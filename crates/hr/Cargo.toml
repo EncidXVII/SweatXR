@@ -1,0 +1,14 @@
+[package]
+name = "fitvr-hr"
+description = "Bluetooth LE heart rate (service 0x180D) and a fake source for tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+btleplug.workspace = true
+tokio.workspace = true
+futures.workspace = true
+tracing.workspace = true

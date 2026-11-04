@@ -1,0 +1,309 @@
+import { Tokens } from "@tokens";
+import { AppState, HrDevice } from "state.slint";
+import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Hit, Ring, Segmented, Stat, StepRow, Title } from "kit.slint";
+
+// Profile rows shared by first run and settings. Rust clamps and saves on every change.
+component WeightRow inherits StepRow {
+    label: "Weight";
+    value: AppState.profile.imperial ? "\{round(AppState.profile.weight * 2.20462)} lb" : "\{round(AppState.profile.weight)} kg";
+    minus => {
+        AppState.profile.weight -= AppState.profile.imperial ? 0.453592 : 1;
+        AppState.profile-changed(AppState.profile);
+    }
+    plus => {
+        AppState.profile.weight += AppState.profile.imperial ? 0.453592 : 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+component HeightRow inherits StepRow {
+    property <float> inches: AppState.profile.height / 2.54;
+    label: "Height";
+    value: AppState.profile.imperial ? "\{floor(self.inches / 12)} ft \{round(self.inches - floor(self.inches / 12) * 12)} in" : "\{round(AppState.profile.height)} cm";
+    minus => {
+        AppState.profile.height -= AppState.profile.imperial ? 2.54 : 1;
+        AppState.profile-changed(AppState.profile);
+    }
+    plus => {
+        AppState.profile.height += AppState.profile.imperial ? 2.54 : 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+component AgeRow inherits StepRow {
+    label: "Age";
+    value: "\{AppState.profile.age}";
+    minus => {
+        AppState.profile.age -= 1;
+        AppState.profile-changed(AppState.profile);
+    }
+    plus => {
+        AppState.profile.age += 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+component SexRow inherits ChoiceRow {
+    label: "Sex";
+    options: ["MALE", "FEMALE"];
+    selected: AppState.profile.female ? 1 : 0;
+    picked(i) => {
+        AppState.profile.female = i == 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+component GoalRow inherits StepRow {
+    label: "Daily goal";
+    value: "\{AppState.profile.goal} kcal";
+    minus => {
+        AppState.profile.goal -= 25;
+        AppState.profile-changed(AppState.profile);
+    }
+    plus => {
+        AppState.profile.goal += 25;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+export component FirstRunPage inherits VerticalLayout {
+    padding: Tokens.space-7;
+    spacing: Tokens.space-5;
+    alignment: start;
+    Title {
+        text: "WELCOME.";
+    }
+    Caption {
+        text: "Four answers make the estimates fit you. Change them any time in Settings.";
+    }
+    WeightRow { }
+    AgeRow { }
+    SexRow { }
+    GoalRow { }
+    HorizontalLayout {
+        alignment: end;
+        Button {
+            text: "START";
+            primary: true;
+            clicked => {
+                AppState.finish-first-run();
+            }
+        }
+    }
+}
+
+export component TodayPage inherits HorizontalLayout {
+    spacing: Tokens.space-7;
+    VerticalLayout {
+        alignment: start;
+        spacing: Tokens.space-6;
+        Rectangle {
+            width: 320px;
+            height: 320px;
+            Ring {
+                progress: AppState.progress;
+            }
+            VerticalLayout {
+                alignment: center;
+                Big {
+                    text: AppState.kcal-text;
+                    horizontal-alignment: center;
+                }
+                Caption {
+                    text: AppState.goal-text;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+        HorizontalLayout {
+            alignment: space-around;
+            Stat {
+                value: AppState.active-text;
+                label: "ACTIVE";
+            }
+            if AppState.hr-shown: Stat {
+                value: AppState.hr-text;
+                label: "HEART RATE";
+                live: AppState.hr-live;
+            }
+        }
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: start;
+        spacing: Tokens.space-5;
+        Caption {
+            text: "BY GAME";
+        }
+        if AppState.games.length == 0: Body {
+            text: "Play anything in SteamVR and it shows up here.";
+            color: Tokens.ink2;
+            wrap: word-wrap;
+        }
+        for game in AppState.games: GameRowView {
+            game: game;
+        }
+    }
+}
+
+export component HistoryPage inherits VerticalLayout {
+    in property <bool> show-range;
+    spacing: Tokens.space-5;
+    HorizontalLayout {
+        spacing: Tokens.space-5;
+        if root.show-range: Segmented {
+            options: ["DAY", "WEEK", "MONTH"];
+            selected: AppState.history-range;
+            picked(i) => {
+                AppState.history-range = i;
+                AppState.history-range-changed(i);
+            }
+        }
+        Body {
+            text: AppState.history-total;
+            horizontal-stretch: 1;
+        }
+        Body {
+            text: AppState.streak-text;
+            color: Tokens.accent;
+            horizontal-alignment: right;
+        }
+    }
+    BarChart {
+        bars: AppState.bars;
+        vertical-stretch: 1;
+        min-height: 200px;
+    }
+    for game in AppState.history-games: GameRowView {
+        game: game;
+    }
+}
+
+component DeviceRow inherits Rectangle {
+    in property <HrDevice> device;
+    min-height: Tokens.size-control;
+    background: hit.has-hover ? Tokens.raised : Tokens.surface;
+    border-width: 1px;
+    border-color: root.device.chosen ? Tokens.accent : Tokens.edge;
+    HorizontalLayout {
+        padding-left: Tokens.space-4;
+        padding-right: Tokens.space-4;
+        Body {
+            text: root.device.name;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Caption {
+            text: root.device.chosen ? "IN USE" : "USE";
+            color: root.device.chosen ? Tokens.accent : Tokens.ink2;
+        }
+    }
+    hit := Hit {
+        clicked => {
+            AppState.hr-pick(root.device.id);
+        }
+    }
+}
+
+export component SettingsPage inherits VerticalLayout {
+    property <int> section;
+    spacing: Tokens.space-5;
+    alignment: start;
+    HorizontalLayout {
+        alignment: start;
+        Segmented {
+            options: ["PROFILE", "DEVICE"];
+            selected: root.section;
+            picked(i) => {
+                root.section = i;
+            }
+        }
+    }
+    if root.section == 0: VerticalLayout {
+        spacing: Tokens.space-3;
+        WeightRow { }
+        HeightRow { }
+        AgeRow { }
+        SexRow { }
+        GoalRow { }
+    }
+    if root.section == 1: VerticalLayout {
+        spacing: Tokens.space-3;
+        ChoiceRow {
+            label: "Watch hand";
+            options: ["LEFT", "RIGHT"];
+            selected: AppState.profile.right-hand ? 1 : 0;
+            picked(i) => {
+                AppState.profile.right-hand = i == 1;
+                AppState.profile-changed(AppState.profile);
+            }
+        }
+        ChoiceRow {
+            label: "Units";
+            options: ["METRIC", "IMPERIAL"];
+            selected: AppState.profile.imperial ? 1 : 0;
+            picked(i) => {
+                AppState.profile.imperial = i == 1;
+                AppState.profile-changed(AppState.profile);
+            }
+        }
+        ChoiceRow {
+            label: "Start with SteamVR";
+            options: ["OFF", "ON"];
+            selected: AppState.profile.auto-start ? 1 : 0;
+            picked(i) => {
+                AppState.profile.auto-start = i == 1;
+                AppState.profile-changed(AppState.profile);
+            }
+        }
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            Body {
+                text: "Heart rate strap";
+                horizontal-stretch: 1;
+            }
+            Caption {
+                text: AppState.hr-status;
+            }
+            Button {
+                text: AppState.hr-scanning ? "SCANNING..." : "SCAN";
+                clicked => {
+                    AppState.hr-scan();
+                }
+            }
+        }
+        for device in AppState.hr-devices: DeviceRow {
+            device: device;
+        }
+    }
+}
+
+export component ExportPage inherits VerticalLayout {
+    spacing: Tokens.space-5;
+    alignment: start;
+    Body {
+        text: "Files go to Documents/FitnessVR. TCX opens in most fitness apps; CSV has every second.";
+        color: Tokens.ink2;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        spacing: Tokens.space-4;
+        alignment: start;
+        Button {
+            text: "EXPORT TODAY AS TCX";
+            primary: true;
+            clicked => {
+                AppState.export-tcx();
+            }
+        }
+        Button {
+            text: "EXPORT ALL AS CSV";
+            clicked => {
+                AppState.export-csv();
+            }
+        }
+    }
+    Caption {
+        text: AppState.export-status;
+    }
+}

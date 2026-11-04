@@ -1,0 +1,5 @@
+/target
+/.agent
+*.snap.new
+*.pending-snap
+/dist

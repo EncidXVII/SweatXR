@@ -1,0 +1,294 @@
+// Shared components. Colours, type and spacing come only from Tokens.
+import { Tokens } from "@tokens";
+import { AppState, Feedback, GameRow, Bar } from "state.slint";
+
+export component Hit inherits TouchArea {
+    mouse-cursor: pointer;
+    changed has-hover => {
+        if self.has-hover {
+            Feedback.hover();
+        }
+    }
+    changed pressed => {
+        if self.pressed {
+            Feedback.press();
+        }
+    }
+}
+
+export component Caption inherits Text {
+    color: Tokens.ink2;
+    font-size: Tokens.type-small;
+    font-family: Tokens.font-body;
+    vertical-alignment: center;
+}
+
+export component Body inherits Text {
+    color: Tokens.ink;
+    font-size: Tokens.type-body;
+    font-family: Tokens.font-body;
+    vertical-alignment: center;
+}
+
+export component Title inherits Text {
+    color: Tokens.ink;
+    font-size: Tokens.type-title;
+    font-family: Tokens.font-display;
+}
+
+export component Big inherits Text {
+    color: Tokens.ink;
+    font-size: Tokens.type-display;
+    font-family: Tokens.font-display;
+}
+
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    in property <length> label-size: Tokens.type-small;
+    callback clicked();
+    min-height: Tokens.size-control;
+    min-width: max(Tokens.size-control, label.preferred-width + 2 * Tokens.space-5);
+    horizontal-stretch: 0;
+    background: hit.pressed || root.primary ? Tokens.accent : hit.has-hover ? Tokens.raised : Tokens.surface;
+    border-width: root.primary ? 0px : 1px;
+    border-color: hit.has-hover ? Tokens.accent : Tokens.edge;
+    label := Text {
+        text: root.text;
+        color: hit.pressed || root.primary ? Tokens.on-accent : Tokens.ink;
+        font-size: root.label-size;
+        font-family: Tokens.font-body;
+    }
+    hit := Hit {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Segmented inherits HorizontalLayout {
+    in property <[string]> options;
+    in property <int> selected;
+    callback picked(int);
+    horizontal-stretch: 0;
+    for option[i] in root.options: Rectangle {
+        // Equal cells when a row gives the control a fixed width.
+        horizontal-stretch: 1;
+        min-height: Tokens.size-control;
+        min-width: t.preferred-width + 2 * Tokens.space-5;
+        background: i == root.selected ? Tokens.accent : h.has-hover ? Tokens.raised : Tokens.surface;
+        border-width: 1px;
+        border-color: i == root.selected ? Tokens.accent : Tokens.edge;
+        t := Text {
+            text: option;
+            color: i == root.selected ? Tokens.on-accent : Tokens.ink;
+            font-size: Tokens.type-small;
+            font-family: Tokens.font-body;
+        }
+        h := Hit {
+            clicked => {
+                root.picked(i);
+            }
+        }
+    }
+}
+
+export component TabBar inherits HorizontalLayout {
+    in property <[string]> tabs;
+    in-out property <int> selected;
+    spacing: Tokens.space-6;
+    horizontal-stretch: 0;
+    for tab[i] in root.tabs: Rectangle {
+        min-height: Tokens.size-control;
+        min-width: label.preferred-width;
+        label := Text {
+            text: tab;
+            color: i == root.selected ? Tokens.ink : Tokens.ink2;
+            font-size: Tokens.type-body;
+            font-family: Tokens.font-body;
+        }
+        Rectangle {
+            y: parent.height - self.height;
+            height: Tokens.space-1;
+            background: i == root.selected ? Tokens.accent : hit.has-hover ? Tokens.edge : transparent;
+        }
+        hit := Hit {
+            clicked => {
+                root.selected = i;
+            }
+        }
+    }
+}
+
+export component StepRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    callback minus();
+    callback plus();
+    spacing: Tokens.space-3;
+    Body {
+        text: root.label;
+        horizontal-stretch: 1;
+    }
+    Button {
+        text: "-";
+        label-size: Tokens.type-heading;
+        width: Tokens.size-control;
+        clicked => {
+            root.minus();
+        }
+    }
+    Body {
+        text: root.value;
+        min-width: 200px;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "+";
+        label-size: Tokens.type-heading;
+        width: Tokens.size-control;
+        clicked => {
+            root.plus();
+        }
+    }
+}
+
+export component ChoiceRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <[string]> options;
+    in property <int> selected;
+    callback picked(int);
+    spacing: Tokens.space-3;
+    Body {
+        text: root.label;
+        horizontal-stretch: 1;
+    }
+    Segmented {
+        // Same width as a StepRow's controls, so the right column lines up.
+        width: 2 * Tokens.size-control + 200px + 2 * Tokens.space-3;
+        options: root.options;
+        selected: root.selected;
+        picked(i) => {
+            root.picked(i);
+        }
+    }
+}
+
+// Goal ring: track plus an arc from 12 o'clock, clockwise.
+export component Ring inherits Rectangle {
+    in property <float> progress;
+    in property <length> thickness: Tokens.space-5;
+    property <float> p: min(max(root.progress, 0), 0.9999);
+    property <float> r: 50 - root.thickness / root.width * 50;
+    Rectangle {
+        border-radius: self.width / 2;
+        border-width: root.thickness;
+        border-color: root.progress >= 1 ? Tokens.accent : Tokens.raised;
+    }
+    if root.progress > 0.005 && root.progress < 1: Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        stroke: Tokens.accent;
+        stroke-width: root.thickness;
+        MoveTo {
+            x: 50;
+            y: 50 - root.r;
+        }
+        ArcTo {
+            x: 50 + root.r * sin(root.p * 360deg);
+            y: 50 - root.r * cos(root.p * 360deg);
+            radius-x: root.r;
+            radius-y: root.r;
+            large-arc: root.p > 0.5;
+            sweep: true;
+        }
+    }
+}
+
+export component Stat inherits VerticalLayout {
+    in property <string> value;
+    in property <string> label;
+    in property <bool> live;
+    spacing: Tokens.space-1;
+    Text {
+        text: root.value;
+        color: root.live ? Tokens.accent : Tokens.ink;
+        font-size: Tokens.type-heading;
+        font-family: Tokens.font-display;
+    }
+    Caption {
+        text: root.label;
+    }
+}
+
+export component GameRowView inherits VerticalLayout {
+    in property <GameRow> game;
+    spacing: Tokens.space-2;
+    HorizontalLayout {
+        spacing: Tokens.space-4;
+        Body {
+            text: root.game.name;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Caption {
+            text: root.game.minutes;
+        }
+        Body {
+            text: root.game.kcal;
+            min-width: 140px;
+            horizontal-alignment: right;
+        }
+    }
+    Rectangle {
+        height: Tokens.space-1;
+        background: Tokens.raised;
+        Rectangle {
+            x: 0;
+            width: parent.width * root.game.share;
+            background: Tokens.accent;
+        }
+    }
+}
+
+export component BarChart inherits HorizontalLayout {
+    in property <[Bar]> bars;
+    spacing: Tokens.space-2;
+    for bar in root.bars: VerticalLayout {
+        horizontal-stretch: 1;
+        // Equal columns regardless of label width.
+        preferred-width: 0px;
+        spacing: Tokens.space-2;
+        Caption {
+            text: bar.text;
+            horizontal-alignment: center;
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            Rectangle {
+                y: parent.height - self.height;
+                height: max(Tokens.space-1, parent.height * bar.value);
+                background: bar.met ? Tokens.accent : Tokens.edge;
+            }
+        }
+        Caption {
+            text: bar.label;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// Where the VR pointer is. Hidden on the desktop.
+export component Cursor inherits Rectangle {
+    visible: AppState.cursor-visible;
+    x: AppState.cursor-x - self.width / 2;
+    y: AppState.cursor-y - self.height / 2;
+    width: Tokens.space-4;
+    height: Tokens.space-4;
+    border-radius: self.width / 2;
+    background: Tokens.accent;
+    border-width: 2px;
+    border-color: Tokens.bg;
+}

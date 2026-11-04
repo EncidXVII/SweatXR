@@ -1,0 +1,179 @@
+// The three surfaces. Same pages and tokens everywhere; only the frame differs.
+import { Tokens } from "@tokens";
+import "fonts/Anton-Regular.ttf";
+import "fonts/Ubuntu-Light.ttf";
+import { AppState, Feedback } from "state.slint";
+import { Button, Caption, Cursor, Ring, TabBar } from "kit.slint";
+import { ExportPage, FirstRunPage, HistoryPage, SettingsPage, TodayPage } from "pages.slint";
+
+export { AppState, Feedback }
+
+component Footer inherits Caption {
+    text: "Calories are estimates. Not a medical device.";
+    color: Tokens.ink3;
+}
+
+// Number in the display face with a small unit, so two readings fit next to the kcal.
+component Reading inherits HorizontalLayout {
+    in property <string> value;
+    in property <string> unit;
+    in property <bool> live;
+    spacing: Tokens.space-1;
+    Text {
+        text: root.value;
+        color: root.live ? Tokens.accent : Tokens.ink;
+        font-size: Tokens.type-watch-small;
+        font-family: Tokens.font-display;
+        vertical-alignment: bottom;
+    }
+    Caption {
+        text: root.unit;
+        vertical-alignment: bottom;
+    }
+}
+
+// 8 cm on the wrist: ring, kcal big, active minutes and heart rate small.
+export component WatchView inherits Window {
+    width: 512px;
+    height: 320px;
+    background: Tokens.bg;
+    HorizontalLayout {
+        padding: Tokens.space-5;
+        spacing: Tokens.space-5;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 208px;
+                height: 208px;
+                Ring {
+                    progress: AppState.progress;
+                    thickness: 20px;
+                }
+                Text {
+                    text: AppState.percent-text;
+                    color: Tokens.ink2;
+                    font-size: Tokens.type-watch-small;
+                    font-family: Tokens.font-display;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: Tokens.space-1;
+            Text {
+                text: AppState.kcal-text;
+                color: Tokens.ink;
+                font-size: Tokens.type-watch-big;
+                font-family: Tokens.font-display;
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-2;
+                alignment: start;
+                // Lime dot: a session is being counted right now.
+                if AppState.tracking: VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: Tokens.space-3;
+                        height: Tokens.space-3;
+                        border-radius: self.width / 2;
+                        background: Tokens.accent;
+                    }
+                }
+                Caption {
+                    text: "KCAL EST.";
+                }
+            }
+            HorizontalLayout {
+                padding-top: Tokens.space-3;
+                spacing: Tokens.space-5;
+                alignment: start;
+                Reading {
+                    value: AppState.active-value;
+                    unit: "MIN";
+                }
+                if AppState.hr-shown: Reading {
+                    value: AppState.hr-value;
+                    unit: "BPM";
+                    live: AppState.hr-live;
+                }
+            }
+        }
+    }
+    Cursor { }
+}
+
+// 0.8 m wide at 0.7 m, opened from the watch.
+export component PanelView inherits Window {
+    in-out property <int> tab;
+    width: 1200px;
+    height: 800px;
+    background: Tokens.bg;
+    if AppState.first-run: FirstRunPage { }
+    if !AppState.first-run: VerticalLayout {
+        padding: Tokens.space-7;
+        spacing: Tokens.space-6;
+        HorizontalLayout {
+            spacing: Tokens.space-6;
+            TabBar {
+                tabs: ["TODAY", "WEEK", "SETTINGS"];
+                selected <=> root.tab;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "CLOSE";
+                clicked => {
+                    AppState.close-panel();
+                }
+            }
+        }
+        if root.tab == 0: TodayPage {
+            vertical-stretch: 1;
+        }
+        if root.tab == 1: HistoryPage {
+            vertical-stretch: 1;
+        }
+        if root.tab == 2: SettingsPage {
+            vertical-stretch: 1;
+        }
+        Footer { }
+    }
+    Cursor { }
+}
+
+export component DesktopWindow inherits Window {
+    in-out property <int> tab;
+    title: "FitnessVR";
+    preferred-width: 1200px;
+    preferred-height: 800px;
+    min-width: 1024px;
+    min-height: 720px;
+    background: Tokens.bg;
+    if AppState.first-run: FirstRunPage { }
+    if !AppState.first-run: VerticalLayout {
+        padding: Tokens.space-7;
+        spacing: Tokens.space-6;
+        HorizontalLayout {
+            alignment: start;
+            TabBar {
+                tabs: ["TODAY", "HISTORY", "EXPORT", "SETTINGS"];
+                selected <=> root.tab;
+            }
+        }
+        if root.tab == 0: TodayPage {
+            vertical-stretch: 1;
+        }
+        if root.tab == 1: HistoryPage {
+            show-range: true;
+            vertical-stretch: 1;
+        }
+        if root.tab == 2: ExportPage {
+            vertical-stretch: 1;
+        }
+        if root.tab == 3: SettingsPage {
+            vertical-stretch: 1;
+        }
+        Footer { }
+    }
+}

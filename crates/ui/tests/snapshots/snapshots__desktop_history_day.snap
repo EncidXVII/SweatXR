@@ -1,0 +1,6 @@
+---
+source: crates/ui/tests/snapshots.rs
+expression: "png(&rgba, w, h)"
+extension: png
+snapshot_kind: binary
+---

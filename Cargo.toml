@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/hr", "crates/vr", "crates/ui", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+rust-version = "1.88"
+repository = "https://github.com/encid/fitnessvr"
+
+[workspace.dependencies]
+fitvr-core = { path = "crates/core" }
+fitvr-hr = { path = "crates/hr" }
+fitvr-vr = { path = "crates/vr" }
+fitvr-ui = { path = "crates/ui" }
+rusqlite = { version = "0.41", features = ["bundled"] }
+directories = "6"
+quick-xml = "0.42"
+serde_json = "1"
+ash = "0.38"
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "renderer-software", "backend-winit", "software-renderer-systemfonts"] }
+slint-build = "1.18"
+btleplug = "0.13"
+tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
+tray-icon = "0.26"
+insta = "1.49"
+png = "0.18"
+
+[profile.release]
+lto = "thin"
+strip = true
