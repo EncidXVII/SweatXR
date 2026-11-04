@@ -1,6 +1,7 @@
 ---
 name: Bug
 about: Something does not work as described
+labels: bug
 ---
 
 **What happened**

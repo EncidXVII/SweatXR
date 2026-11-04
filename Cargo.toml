@@ -3,11 +3,10 @@ resolver = "3"
 members = ["crates/core", "crates/hr", "crates/vr", "crates/ui", "crates/app"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-only"
 rust-version = "1.88"
-repository = "https://github.com/encid/fitnessvr"
 
 [workspace.dependencies]
 fitvr-core = { path = "crates/core" }
