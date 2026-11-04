@@ -70,12 +70,11 @@ impl Hr {
         }
     }
 
-    fn status(&self, p: &Profile) -> Status {
+    fn status(&self) -> Status {
         match self {
             Self::Live(b) => b.status(),
-            Self::PairOnly(b) if b.status() == Status::Scanning => Status::Scanning,
-            Self::PairOnly(b) if b.status() == Status::NoAdapter => Status::NoAdapter,
-            Self::PairOnly(_) if p.hr_device.is_some() => Status::Connecting,
+            // The desktop never connects, so "Connecting" there would never resolve.
+            Self::PairOnly(b) if matches!(b.status(), Status::Scanning | Status::NoAdapter) => b.status(),
             Self::PairOnly(_) => Status::Off,
             Self::Fake(f) => f.status(),
         }
@@ -98,6 +97,8 @@ pub struct App {
     pub hr: Hr,
     /// Set by the overlay each tick; always false on the desktop.
     pub tracking: bool,
+    /// Replaces the empty-state hint, e.g. when SteamVR is missing.
+    pub notice: Option<String>,
     range: Range,
     export_status: String,
     export_dir: std::path::PathBuf,
@@ -110,6 +111,7 @@ impl App {
         Ok(Self {
             hr: hr(&profile),
             tracking: false,
+            notice: None,
             store,
             profile,
             range: Range::Week,
@@ -225,13 +227,16 @@ impl App {
         let live = Live {
             tracking: self.tracking,
             hr: self.hr.bpm(),
-            hr_status: self.hr.status(&self.profile),
+            hr_status: self.hr.status(),
             devices: &devices,
         };
         if let Err(e) = refresh(s, &self.store, &self.profile, now, self.range, &live) {
             tracing::warn!("refresh: {e}");
         }
         s.set_export_status(self.export_status.as_str().into());
+        if let Some(n) = &self.notice {
+            s.set_empty_text(n.as_str().into());
+        }
     }
 }
 

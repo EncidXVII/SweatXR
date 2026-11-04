@@ -96,7 +96,7 @@ pub fn refresh(s: &AppState, store: &Store, p: &Profile, now: i64, range: Range,
 
     s.set_profile(profile_data(p));
     s.set_first_run(!p.onboarded);
-    s.set_hr_status(hr_status(live).into());
+    s.set_hr_status(hr_status(live, p).into());
     s.set_hr_scanning(live.hr_status == Status::Scanning);
     let devices: Vec<HrDevice> = live
         .devices
@@ -121,8 +121,9 @@ fn changed<T: Clone + PartialEq + 'static>(old: &ModelRc<T>, new: &ModelRc<T>) -
     old.row_count() != new.row_count() || old.iter().zip(new.iter()).any(|(a, b)| a != b)
 }
 
-fn hr_status(live: &Live) -> String {
+fn hr_status(live: &Live, p: &Profile) -> String {
     match (live.hr_status, live.hr) {
+        (Status::Off, _) if p.hr_device.is_some() => "Saved, connects in VR".into(),
         (Status::Off, _) => "No strap chosen".into(),
         (Status::NoAdapter, _) => "No Bluetooth".into(),
         (Status::Scanning, _) if live.devices.len() > SHOWN_DEVICES => {
@@ -184,7 +185,8 @@ fn bars(store: &Store, today: Day, range: Range, goal: f32) -> Result<(Day, Vec<
         .into_iter()
         .map(|(label, kcal, met)| Bar {
             label: label.into(),
-            text: if show_text {
+            // No number over empty days: six zeros read as noise.
+            text: if show_text && kcal >= 0.5 {
                 format!("{kcal:.0}").into()
             } else {
                 SharedString::new()

@@ -47,7 +47,12 @@ fn write_json(path: &Path, value: &serde_json::Value) -> std::io::Result<()> {
 
 /// Writes the manifest pointing at this exact executable, so a moved install re-registers itself.
 pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
-    let exe = std::env::current_exe()?;
+    // Inside an AppImage the exe sits in a mount whose path changes every run; $APPIMAGE is the
+    // stable file SteamVR must launch.
+    let exe = match std::env::var_os("APPIMAGE") {
+        Some(p) => PathBuf::from(p),
+        None => std::env::current_exe()?,
+    };
     let path = dirs.data.join("fitvr.vrmanifest");
     let exe_key = if cfg!(windows) {
         "binary_path_windows"

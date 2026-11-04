@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=FitnessVR
+Comment=Calories, active minutes and heart rate on your wrist in every SteamVR game
+Exec=fitvr
+Icon=fitvr
+Categories=Game;Sports;
+Terminal=false

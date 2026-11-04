@@ -14,7 +14,7 @@ use fitvr_ui::{AppState, DesktopWindow, PanelView, WatchView};
 use slint::ComponentHandle;
 
 const DAY: i64 = 86_400;
-/// 2026-11-04 18:00 UTC, a Wednesday.
+/// 2025-11-04 18:00 UTC, a Tuesday.
 const NOW: i64 = 20_396 * DAY + 64_800;
 
 fn png(rgba: &[u8], w: u32, h: u32) -> Vec<u8> {

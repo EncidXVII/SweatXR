@@ -22,6 +22,10 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let app = Rc::new(RefCell::new(App::open(dirs, |_| {
         Hr::PairOnly(BleHr::start(None))
     })?));
+    if fitvr_vr::runtime_dir().is_none() {
+        app.borrow_mut().notice =
+            Some("SteamVR is not installed. Install it from Steam to get the watch in VR.".into());
+    }
     let ui = DesktopWindow::new()?;
     let queue = Queue::default();
     wire(&ui.global::<AppState>(), &queue);

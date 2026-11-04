@@ -224,6 +224,8 @@ export component Stat inherits VerticalLayout {
 }
 
 export component GameRowView inherits VerticalLayout {
+    // Rows keep their height; spare space goes to the chart, not between name and bar.
+    vertical-stretch: 0;
     in property <GameRow> game;
     spacing: Tokens.space-2;
     HorizontalLayout {

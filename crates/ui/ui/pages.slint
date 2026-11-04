@@ -136,7 +136,7 @@ export component TodayPage inherits HorizontalLayout {
             text: "BY GAME";
         }
         if AppState.games.length == 0: Body {
-            text: "Play anything in SteamVR and it shows up here.";
+            text: AppState.empty-text;
             color: Tokens.ink2;
             wrap: word-wrap;
         }
@@ -305,5 +305,6 @@ export component ExportPage inherits VerticalLayout {
     }
     Caption {
         text: AppState.export-status;
+        wrap: word-wrap;
     }
 }

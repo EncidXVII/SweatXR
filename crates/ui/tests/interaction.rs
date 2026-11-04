@@ -242,3 +242,42 @@ fn edge_cases_render() {
     click(&mut panel, 251.0, 176.0);
     insta::assert_binary_snapshot!("panel_settings_scanning.png", png(&mut panel));
 }
+
+#[test]
+fn desktop_states_render_at_minimum_size() {
+    use fitvr_ui::DesktopWindow;
+    install();
+    let p = Profile {
+        onboarded: true,
+        ..Profile::default()
+    };
+    let store = store_with(&p, "Rhythm Blocks", 1800);
+    let devices = [Device {
+        id: "strap-1".into(),
+        name: "Chest Strap With A Rather Long Bluetooth Name 12345".into(),
+    }];
+    let live = Live {
+        tracking: false,
+        hr: None,
+        hr_status: Status::Connecting,
+        devices: &devices,
+    };
+    // The desktop window's minimum size: every page must still fit.
+    let mut desk = Surface::new(DesktopWindow::new, 1024, 720).expect("desktop");
+    refresh(&desk.ui.global::<AppState>(), &store, &p, NOW, Range::Week, &live).expect("refresh");
+    insta::assert_binary_snapshot!("desktop_min_today.png", png(&mut desk));
+    desk.ui.set_tab(1);
+    insta::assert_binary_snapshot!("desktop_min_history_week.png", png(&mut desk));
+    desk.ui.set_tab(2);
+    desk.ui.global::<AppState>().set_export_status(
+        r"Saved C:\Users\someone with a long name\Documents\FitnessVR\fitvr-2026-11-04.tcx".into(),
+    );
+    insta::assert_binary_snapshot!("desktop_min_export_saved.png", png(&mut desk));
+    desk.ui.set_tab(3);
+    desk.render();
+    click(&mut desk, 251.0, 176.0);
+    insta::assert_binary_snapshot!("desktop_min_settings_device.png", png(&mut desk));
+    // Hover state: pointer resting on the SCAN button.
+    desk.pointer(930.0, 492.0, Pointer::Move);
+    insta::assert_binary_snapshot!("desktop_min_hover.png", png(&mut desk));
+}

@@ -23,4 +23,5 @@ First release.
   and hand motion without one, with personal calibration after 20 minutes with a strap.
 - Sessions per game, active minutes, daily goal and streaks, all stored locally in SQLite.
 - Export to TCX (today) and CSV (everything).
-- Starts with SteamVR. Windows x64, Linux x64, Linux arm64 (Steam Frame).
+- Starts with SteamVR. Windows x64 (zip), Linux x64 and arm64 (AppImage and tar.gz), each with
+  a SHA-256 file.

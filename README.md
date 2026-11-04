@@ -24,8 +24,9 @@ on a PC; Quest standalone is not supported.
 
 1. Download the archive for your system from the latest release and check it against its
    `.sha256` file.
-2. Unpack it anywhere. On Linux or Steam Frame (Developer Mode) run `./install.sh`; on Windows
-   keep the folder where it is.
+2. Windows: unpack the zip anywhere and keep the folder. Linux or Steam Frame (Developer Mode):
+   either make the `.AppImage` executable and keep it where it is, or unpack the `.tar.gz` and
+   run `./install.sh`.
 3. Start SteamVR, then run `fitvr` once. It registers itself and starts with SteamVR from then
    on. Turn that off in Settings > Device > Start with SteamVR.
 

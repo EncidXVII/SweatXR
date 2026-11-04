@@ -48,6 +48,19 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then f=${{ matrix.artifact }}.zip; 7z a -tzip "$f" fitvr > /dev/null
           else f=${{ matrix.artifact }}.tar.gz; tar czf "$f" fitvr; fi
           sha256sum "$f" > "$f.sha256"
+      - name: AppImage
+        if: runner.os == 'Linux'
+        run: |
+          arch=$(uname -m)
+          curl -sSfL -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-$arch.AppImage"
+          chmod +x appimagetool
+          mkdir -p AppDir/usr/bin
+          cp target/release/fitvr AppDir/usr/bin/
+          cp packaging/fitvr.desktop packaging/fitvr.png AppDir/
+          ln -s usr/bin/fitvr AppDir/AppRun
+          # Runners have no FUSE; extract-and-run avoids it.
+          ARCH=$arch ./appimagetool --appimage-extract-and-run AppDir "dist/${{ matrix.artifact }}.AppImage"
+          cd dist && sha256sum "${{ matrix.artifact }}.AppImage" > "${{ matrix.artifact }}.AppImage.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
