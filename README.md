@@ -32,18 +32,20 @@ on a PC; Quest standalone is not supported.
 
 ## Use
 
-- **Watch:** on your left wrist (switch hands in Settings). It dims when you are not looking and
-  goes full brightness after a short glance; it hides when the controller is near your face. A
-  lime dot means a session is being counted.
-- **Panel:** point at the watch with the other controller and pull the trigger. Today, Week and
-  Settings. Rebind the button in SteamVR's controller bindings under FitnessVR.
-- **Desktop:** `fitvr` without SteamVR opens history, export and settings. On Windows it sits in
-  the tray.
+- **Watch:** on your left wrist (switch hands in Settings). Today's calories sit inside the goal
+  ring; active minutes, heart rate and zone are beside it. It dims when you are not looking, goes
+  full brightness after a short glance and hides when the controller is near your face. "LIVE"
+  means a session is being counted. When you reach your goal it turns lime and buzzes.
+- **Panel:** point at the watch with the other controller (a laser shows where you aim) and
+  pull the trigger. Today, Week and Settings. Rebind the button in SteamVR's controller bindings under FitnessVR.
+- **Desktop:** `fitvr` opens Today, History (step back through past weeks and months), Sessions
+  (each session with its own export) and Settings. On Windows it sits in the tray.
 - **Heart rate:** any Bluetooth LE strap that uses the standard heart rate service. Settings >
   Device > Scan, then pick it. Choosing it on the desktop saves the choice; the VR overlay
   connects.
-- **Export:** TCX for today's sessions (opens in most fitness apps) and CSV of every second, to
-  `Documents/FitnessVR`.
+- **Export:** TCX for one session or a whole day (opens in most fitness apps) and CSV of every
+  second, to `Documents/FitnessVR`.
+- **Your data:** Settings > Data shows where it is stored and deletes all history (two clicks).
 
 ## Privacy
 

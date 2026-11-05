@@ -40,6 +40,8 @@ pub struct Profile {
     pub hr_device: Option<String>,
     pub calibration: Option<Calibration>,
     pub onboarded: bool,
+    /// The player has opened the VR panel at least once, so the watch stops teaching the gesture.
+    pub panel_seen: bool,
 }
 
 impl Default for Profile {
@@ -57,6 +59,7 @@ impl Default for Profile {
             hr_device: None,
             calibration: None,
             onboarded: false,
+            panel_seen: false,
         }
     }
 }

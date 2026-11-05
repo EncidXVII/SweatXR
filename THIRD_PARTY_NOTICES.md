@@ -4,7 +4,7 @@
 
 - **Anton** font (`crates/ui/ui/fonts/Anton-Regular.ttf`), Copyright 2020 The Anton Project
   Authors. SIL Open Font License 1.1, full text in `crates/ui/ui/fonts/Anton-OFL.txt`.
-- **Ubuntu Light** font (`crates/ui/ui/fonts/Ubuntu-Light.ttf`), Copyright 2010-2011 Canonical
+- **Ubuntu** font, Regular (`crates/ui/ui/fonts/Ubuntu-Regular.ttf`), Copyright 2010-2011 Canonical
   Ltd. Ubuntu Font Licence 1.0, https://ubuntu.com/legal/font-licence.
 - **openvr_capi.h** (`tools/openvr_capi.h`), Copyright Valve Corporation. BSD 3-Clause
   License. Used only to generate `crates/vr/src/ffi/tables.rs`.

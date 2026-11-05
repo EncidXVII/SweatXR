@@ -11,7 +11,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={}", tokens_path.display());
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&tokens_path)?)?;
 
-    let mut s = String::from("// Generated from design-tokens.json by build.rs.\nexport global Tokens {\n");
+    let mut s = String::from(
+        "// Generated from design-tokens.json by build.rs.
+         export global Mode {
+    in-out property <bool> desktop;
+    in-out property <bool> reduce-motion;
+}
+         export global Tokens {
+",
+    );
     let group = |name: &str| json[name].as_object().ok_or(format!("tokens: missing {name}"));
     let mut line = |ty: &str, name: String, value: String| {
         writeln!(s, "    out property <{ty}> {}: {value};", name.replace('_', "-"))
@@ -26,9 +34,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (k, v) in group("font")? {
         line("string", format!("font-{k}"), format!("{v}"))?;
     }
+    // VR values are the default; `desktop` overrides apply when Mode.desktop is set, so a
+    // desk-distance window gets denser type and controls from the same tokens.
     for (prefix, unit) in [("type", "px"), ("space", "px"), ("radius", "px"), ("size", "px")] {
         for (k, v) in group(prefix)? {
-            line("length", format!("{prefix}-{k}"), format!("{v}{unit}"))?;
+            let value = match json["desktop"][prefix].get(k) {
+                Some(d) => format!("Mode.desktop ? {d}{unit} : {v}{unit}"),
+                None => format!("{v}{unit}"),
+            };
+            line("length", format!("{prefix}-{k}"), value)?;
         }
     }
     for (k, v) in group("motion")? {

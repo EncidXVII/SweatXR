@@ -502,7 +502,8 @@ impl Vr {
     }
 
     /// UV of where a ray hits the overlay, if it does.
-    pub fn intersect(&self, h: u64, source: [f32; 3], direction: [f32; 3]) -> Option<[f32; 2]> {
+    /// (UV, world point) where a ray hits the overlay, if it does.
+    pub fn intersect(&self, h: u64, source: [f32; 3], direction: [f32; 3]) -> Option<([f32; 2], [f32; 3])> {
         let params = IntersectionParams {
             source,
             direction,
@@ -510,7 +511,8 @@ impl Vr {
         };
         let mut res = IntersectionResults::default();
         // SAFETY: both structs are valid for the call.
-        unsafe { (self.overlay.ComputeOverlayIntersection)(h, &params, &mut res) }.then_some(res.uv)
+        unsafe { (self.overlay.ComputeOverlayIntersection)(h, &params, &mut res) }
+            .then_some((res.uv, res.point))
     }
 
     /// (app key, display name) of the running game, if any.

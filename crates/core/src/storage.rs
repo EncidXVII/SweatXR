@@ -33,6 +33,7 @@ const MIGRATIONS: &[&str] = &[
         PRIMARY KEY (day, app_key));",
     "CREATE INDEX samples_session ON samples (session_id);
      CREATE INDEX sessions_start ON sessions (start);",
+    "ALTER TABLE profile ADD COLUMN panel_seen INTEGER NOT NULL DEFAULT 0;",
 ];
 
 #[derive(Clone, Debug, PartialEq)]
@@ -106,7 +107,7 @@ impl Store {
     pub fn profile(&self) -> Result<Profile> {
         let row = self
             .conn
-            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded FROM profile WHERE id = 1", [], |r| {
+            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded, panel_seen FROM profile WHERE id = 1", [], |r| {
                 let cal = match (r.get::<_, Option<f32>>(10)?, r.get::<_, Option<f32>>(11)?) {
                     (Some(slope), Some(intercept)) => Some(Calibration { slope, intercept }),
                     _ => None,
@@ -124,6 +125,7 @@ impl Store {
                     hr_device: r.get(9)?,
                     calibration: cal,
                     onboarded: r.get(12)?,
+                    panel_seen: r.get(13)?,
                 })
             })
             .optional()?;
@@ -132,7 +134,7 @@ impl Store {
 
     pub fn save_profile(&self, p: &Profile) -> Result<()> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 p.weight_kg,
                 p.height_cm,
@@ -147,6 +149,7 @@ impl Store {
                 p.calibration.map(|c| c.slope),
                 p.calibration.map(|c| c.intercept),
                 p.onboarded,
+                p.panel_seen,
             ],
         )?;
         Ok(())
@@ -346,6 +349,28 @@ impl Store {
     }
 
     /// (intensity, kcal/min) pairs from seconds with a heart rate, newest first.
+    /// Seconds of play recorded with a heart rate, for the calibration progress line.
+    pub fn hr_seconds(&self) -> Result<u32> {
+        self.conn
+            .query_row("SELECT COUNT(*) FROM samples WHERE hr IS NOT NULL", [], |r| {
+                r.get(0)
+            })
+    }
+
+    /// Wipes sessions, samples and totals; keeps the profile and game names.
+    pub fn delete_history(&mut self) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute_batch("DELETE FROM samples; DELETE FROM sessions; DELETE FROM daily;")?;
+        tx.commit()?;
+        self.open_session = None;
+        Ok(())
+    }
+
+    /// Seconds since local midnight of `ts`'s day, for clock times in the UI.
+    pub fn local_seconds(&self, ts: i64) -> i64 {
+        (ts + i64::from((self.tz)(ts))).rem_euclid(86_400)
+    }
+
     pub fn calibration_points(&self, limit: u32) -> Result<Vec<(f32, f32)>> {
         let mut st = self.conn.prepare_cached(
             "SELECT intensity, kcal * 60 FROM samples WHERE hr IS NOT NULL ORDER BY ts DESC LIMIT ?1",

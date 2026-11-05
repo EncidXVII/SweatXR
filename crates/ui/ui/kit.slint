@@ -1,5 +1,5 @@
 // Shared components. Colours, type and spacing come only from Tokens.
-import { Tokens } from "@tokens";
+import { Tokens, Mode } from "@tokens";
 import { AppState, Feedback, GameRow, Bar } from "state.slint";
 
 export component Hit inherits TouchArea {
@@ -45,21 +45,24 @@ export component Big inherits Text {
 export component Button inherits Rectangle {
     in property <string> text;
     in property <bool> primary;
+    in property <bool> danger;
+    in property <bool> enabled: true;
     in property <length> label-size: Tokens.type-small;
     callback clicked();
     min-height: Tokens.size-control;
     min-width: max(Tokens.size-control, label.preferred-width + 2 * Tokens.space-5);
     horizontal-stretch: 0;
-    background: hit.pressed || root.primary ? Tokens.accent : hit.has-hover ? Tokens.raised : Tokens.surface;
-    border-width: root.primary ? 0px : 1px;
-    border-color: hit.has-hover ? Tokens.accent : Tokens.edge;
+    background: !root.enabled ? transparent : root.danger ? Tokens.danger : hit.pressed || root.primary ? Tokens.accent : hit.has-hover ? Tokens.raised : Tokens.surface;
+    border-width: root.primary || root.danger ? 0px : 1px;
+    border-color: root.enabled && hit.has-hover ? Tokens.accent : Tokens.edge;
     label := Text {
         text: root.text;
-        color: hit.pressed || root.primary ? Tokens.on-accent : Tokens.ink;
+        color: !root.enabled ? Tokens.ink3 : root.danger || hit.pressed || root.primary ? Tokens.on-accent : Tokens.ink;
         font-size: root.label-size;
         font-family: Tokens.font-body;
     }
     hit := Hit {
+        enabled: root.enabled;
         clicked => {
             root.clicked();
         }
@@ -120,6 +123,11 @@ export component TabBar inherits HorizontalLayout {
     }
 }
 
+// Width of the controls column in settings rows, so steppers and segments line up.
+export global Rows {
+    out property <length> control-width: 2 * Tokens.size-control + Tokens.size-control * 3 + 2 * Tokens.space-3;
+}
+
 export component StepRow inherits HorizontalLayout {
     in property <string> label;
     in property <string> value;
@@ -140,7 +148,7 @@ export component StepRow inherits HorizontalLayout {
     }
     Body {
         text: root.value;
-        min-width: 200px;
+        width: Tokens.size-control * 3;
         horizontal-alignment: center;
     }
     Button {
@@ -164,8 +172,7 @@ export component ChoiceRow inherits HorizontalLayout {
         horizontal-stretch: 1;
     }
     Segmented {
-        // Same width as a StepRow's controls, so the right column lines up.
-        width: 2 * Tokens.size-control + 200px + 2 * Tokens.space-3;
+        width: Rows.control-width;
         options: root.options;
         selected: root.selected;
         picked(i) => {
@@ -174,11 +181,15 @@ export component ChoiceRow inherits HorizontalLayout {
     }
 }
 
-// Goal ring: track plus an arc from 12 o'clock, clockwise.
+// Goal ring: track plus an arc from 12 o'clock, clockwise. Eases to new values.
 export component Ring inherits Rectangle {
     in property <float> progress;
     in property <length> thickness: Tokens.space-5;
     property <float> p: min(max(root.progress, 0), 0.9999);
+    animate p {
+        duration: Mode.reduce-motion ? 0ms : Tokens.motion-slow;
+        easing: ease-out;
+    }
     property <float> r: 50 - root.thickness / root.width * 50;
     Rectangle {
         border-radius: self.width / 2;
@@ -224,9 +235,9 @@ export component Stat inherits VerticalLayout {
 }
 
 export component GameRowView inherits VerticalLayout {
+    in property <GameRow> game;
     // Rows keep their height; spare space goes to the chart, not between name and bar.
     vertical-stretch: 0;
-    in property <GameRow> game;
     spacing: Tokens.space-2;
     HorizontalLayout {
         spacing: Tokens.space-4;
@@ -240,7 +251,7 @@ export component GameRowView inherits VerticalLayout {
         }
         Body {
             text: root.game.kcal;
-            min-width: 140px;
+            min-width: Tokens.size-control * 2;
             horizontal-alignment: right;
         }
     }
@@ -278,6 +289,35 @@ export component BarChart inherits HorizontalLayout {
         Caption {
             text: bar.label;
             horizontal-alignment: center;
+        }
+    }
+}
+
+// Previous / next period with the period's name between.
+export component Stepper inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> has-next;
+    callback step(int);
+    spacing: Tokens.space-3;
+    horizontal-stretch: 0;
+    Button {
+        text: "←";
+        width: Tokens.size-control;
+        clicked => {
+            root.step(-1);
+        }
+    }
+    Body {
+        text: root.label;
+        min-width: Tokens.size-control * 4;
+        horizontal-alignment: center;
+    }
+    Button {
+        text: "→";
+        width: Tokens.size-control;
+        enabled: root.has-next;
+        clicked => {
+            root.step(1);
         }
     }
 }

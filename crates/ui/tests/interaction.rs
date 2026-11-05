@@ -10,8 +10,8 @@ use fitvr_core::storage::Store;
 use fitvr_core::tracker::Tracker;
 use fitvr_hr::{Device, Status};
 use fitvr_ui::offscreen::{Pointer, Surface, install};
-use fitvr_ui::view::{Live, Range, refresh};
-use fitvr_ui::{AppState, Feedback, PanelView, WatchView};
+use fitvr_ui::view::{Live, Nav, refresh};
+use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use slint::ComponentHandle;
 
 const NOW: i64 = 20_396 * 86_400 + 64_800;
@@ -21,6 +21,8 @@ enum Got {
     Weight(f32),
     Goal(i32),
     Female(bool),
+    Resting(i32),
+    Delete,
     Imperial(bool),
     FirstRunDone,
     Close,
@@ -48,9 +50,12 @@ fn record(panel: &Surface<PanelView>) -> Rc<RefCell<Vec<Got>>> {
         l.push(Got::Goal(d.goal));
         l.push(Got::Female(d.female));
         l.push(Got::Imperial(d.imperial));
+        l.push(Got::Resting(d.resting_hr));
     });
     let l = log.clone();
     s.on_finish_first_run(move || l.borrow_mut().push(Got::FirstRunDone));
+    let l = log.clone();
+    s.on_delete_history(move || l.borrow_mut().push(Got::Delete));
     let l = log.clone();
     s.on_close_panel(move || l.borrow_mut().push(Got::Close));
     let l = log.clone();
@@ -99,6 +104,7 @@ fn every_panel_control_reaches_its_callback() {
     install();
     let p = Profile {
         onboarded: true,
+        panel_seen: true,
         ..Profile::default()
     };
     let store = Store::in_memory(|_| 0).expect("db");
@@ -113,12 +119,13 @@ fn every_panel_control_reaches_its_callback() {
         devices: &devices,
     };
     let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &live,
     )
     .expect("refresh");
@@ -126,48 +133,67 @@ fn every_panel_control_reaches_its_callback() {
     panel.render();
 
     // Tabs (y = 80): TODAY, WEEK, SETTINGS.
-    click(&mut panel, 215.0, 80.0);
+    click(&mut panel, 207.0, 80.0);
     assert_eq!(panel.ui.get_tab(), 1, "WEEK tab");
-    click(&mut panel, 358.0, 80.0);
+    click(&mut panel, 340.0, 80.0);
     assert_eq!(panel.ui.get_tab(), 2, "SETTINGS tab");
     assert!(
         has(&log, &Got::Hover) && has(&log, &Got::Press),
         "haptic feedback hooks"
     );
 
-    // Profile section: weight +, goal -, sex FEMALE.
+    // BODY: weight +, sex FEMALE, resting heart rate -.
     click(&mut panel, 1119.0, 264.0);
     assert!(has(&log, &Got::Weight(71.0)), "weight +: {:?}", log.borrow());
-    click(&mut panel, 831.0, 568.0);
-    assert!(has(&log, &Got::Goal(275)), "goal -");
-    click(&mut panel, 1078.0, 492.0);
+    click(&mut panel, 1059.0, 492.0);
     assert!(has(&log, &Got::Female(true)), "sex");
+    click(&mut panel, 839.0, 568.0);
+    assert!(has(&log, &Got::Resting(59)), "resting heart rate -");
 
-    // Device section: units, scan, pick a strap.
-    click(&mut panel, 251.0, 176.0);
-    panel.render();
-    let png_device = png(&mut panel);
-    insta::assert_binary_snapshot!("panel_settings_device.png", png_device);
-    log.borrow_mut().clear();
-    click(&mut panel, 1060.0, 340.0);
+    // WATCH: goal -, units IMPERIAL.
+    click(&mut panel, 225.0, 176.0);
+    click(&mut panel, 839.0, 264.0);
+    assert!(has(&log, &Got::Goal(275)), "goal -");
+    click(&mut panel, 1059.0, 416.0);
     assert!(has(&log, &Got::Imperial(true)), "units: {:?}", log.borrow());
-    click(&mut panel, 1090.0, 492.0);
+
+    // STRAP: scan, pick the strap.
+    click(&mut panel, 350.0, 176.0);
+    insta::assert_binary_snapshot!("panel_settings_strap.png", png(&mut panel));
+    click(&mut panel, 1100.0, 264.0);
     assert!(has(&log, &Got::Scan), "scan: {:?}", log.borrow());
-    click(&mut panel, 600.0, 568.0);
+    click(&mut panel, 600.0, 340.0);
     assert!(
         has(&log, &Got::Pick("strap-1".into())),
         "pick: {:?}",
         log.borrow()
     );
 
-    click(&mut panel, 1086.0, 80.0);
+    // DATA: delete takes two clicks.
+    panel
+        .ui
+        .global::<AppState>()
+        .set_data_path("/home/player/.local/share/fitnessvr/fitvr.db".into());
+    click(&mut panel, 464.0, 176.0);
+    insta::assert_binary_snapshot!("panel_settings_data.png", png(&mut panel));
+    click(&mut panel, 200.0, DELETE_Y);
+    assert!(!has(&log, &Got::Delete), "first click only arms");
+    insta::assert_binary_snapshot!("panel_settings_data_confirm.png", png(&mut panel));
+    click(&mut panel, 200.0, DELETE_Y);
+    assert!(has(&log, &Got::Delete), "second click deletes");
+
+    click(&mut panel, 1092.0, 80.0);
     assert!(has(&log, &Got::Close), "close");
 
     panel.ui.global::<AppState>().set_first_run(true);
-    panel.render();
-    click(&mut panel, 1089.0, 580.0);
+    insta::assert_binary_snapshot!("panel_first_run.png", png(&mut panel));
+    click(&mut panel, START.0, START.1);
     assert!(has(&log, &Got::FirstRunDone), "first run START");
 }
+
+/// Delete button and first-run START centres on the 1200x800 panel.
+const DELETE_Y: f32 = 380.0;
+const START: (f32, f32) = (1089.0, 600.0);
 
 #[test]
 fn edge_cases_render() {
@@ -175,6 +201,7 @@ fn edge_cases_render() {
     // Imperial, heavy session, very long game name, strap connected.
     let p = Profile {
         onboarded: true,
+        panel_seen: true,
         units: Units::Imperial,
         goal_kcal: 500,
         ..Profile::default()
@@ -192,24 +219,26 @@ fn edge_cases_render() {
     };
 
     let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    watch.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &watch.ui.global::<AppState>(),
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &live,
     )
     .expect("refresh");
     insta::assert_binary_snapshot!("watch_big_numbers.png", png(&mut watch));
 
     let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &live,
     )
     .expect("refresh");
@@ -235,7 +264,7 @@ fn edge_cases_render() {
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &scanning,
     )
     .expect("refresh");
@@ -249,6 +278,7 @@ fn desktop_states_render_at_minimum_size() {
     install();
     let p = Profile {
         onboarded: true,
+        panel_seen: true,
         ..Profile::default()
     };
     let store = store_with(&p, "Rhythm Blocks", 1800);
@@ -264,7 +294,17 @@ fn desktop_states_render_at_minimum_size() {
     };
     // The desktop window's minimum size: every page must still fit.
     let mut desk = Surface::new(DesktopWindow::new, 1024, 720).expect("desktop");
-    refresh(&desk.ui.global::<AppState>(), &store, &p, NOW, Range::Week, &live).expect("refresh");
+    desk.ui.global::<Mode>().set_reduce_motion(true);
+    desk.ui.global::<Mode>().set_desktop(true);
+    refresh(
+        &desk.ui.global::<AppState>(),
+        &store,
+        &p,
+        NOW,
+        &Nav::default(),
+        &live,
+    )
+    .expect("refresh");
     insta::assert_binary_snapshot!("desktop_min_today.png", png(&mut desk));
     desk.ui.set_tab(1);
     insta::assert_binary_snapshot!("desktop_min_history_week.png", png(&mut desk));

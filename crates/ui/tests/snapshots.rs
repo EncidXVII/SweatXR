@@ -9,8 +9,8 @@ use fitvr_core::storage::Store;
 use fitvr_core::tracker::Tracker;
 use fitvr_hr::{Device, FakeHr, Status};
 use fitvr_ui::offscreen::{Surface, install};
-use fitvr_ui::view::{Live, Range, refresh};
-use fitvr_ui::{AppState, DesktopWindow, PanelView, WatchView};
+use fitvr_ui::view::{Live, Nav, Range, refresh};
+use fitvr_ui::{AppState, DesktopWindow, Mode, PanelView, WatchView};
 use slint::ComponentHandle;
 
 const DAY: i64 = 86_400;
@@ -32,6 +32,7 @@ fn store() -> (Store, Profile) {
     let mut store = Store::in_memory(|_| 0).expect("db");
     let p = Profile {
         onboarded: true,
+        panel_seen: true,
         hr_device: Some("strap-1".into()),
         ..Profile::default()
     };
@@ -103,24 +104,26 @@ fn every_view_matches_its_snapshot() {
     };
 
     let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    watch.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &watch.ui.global::<AppState>(),
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &live,
     )
     .expect("refresh");
     check("watch", &mut watch);
 
     let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
         &store,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &live,
     )
     .expect("refresh");
@@ -132,11 +135,24 @@ fn every_view_matches_its_snapshot() {
     check("panel_first_run", &mut panel);
 
     let mut desk = Surface::new(DesktopWindow::new, 1200, 800).expect("desktop");
+    desk.ui.global::<Mode>().set_reduce_motion(true);
+    desk.ui.global::<Mode>().set_desktop(true);
     for (range, name) in [
         (Range::Day, "desktop_history_day"),
         (Range::Month, "desktop_history_month"),
     ] {
-        refresh(&desk.ui.global::<AppState>(), &store, &p, NOW, range, &live).expect("refresh");
+        refresh(
+            &desk.ui.global::<AppState>(),
+            &store,
+            &p,
+            NOW,
+            &Nav {
+                range,
+                ..Nav::default()
+            },
+            &live,
+        )
+        .expect("refresh");
         desk.ui.set_tab(1);
         check(name, &mut desk);
     }
@@ -144,6 +160,25 @@ fn every_view_matches_its_snapshot() {
         desk.ui.set_tab(tab);
         check(name, &mut desk);
     }
+
+    // First use: the watch teaches the gesture until the panel has been opened once.
+    let first = Profile {
+        panel_seen: false,
+        ..p.clone()
+    };
+    refresh(
+        &watch.ui.global::<AppState>(),
+        &store,
+        &first,
+        NOW,
+        &Nav::default(),
+        &live,
+    )
+    .expect("refresh");
+    check("watch_first_use", &mut watch);
+    watch.ui.global::<AppState>().set_celebrate(true);
+    check("watch_goal_celebration", &mut watch);
+    watch.ui.global::<AppState>().set_celebrate(false);
 
     // Empty state, no strap.
     let empty = Store::in_memory(|_| 0).expect("db");
@@ -158,7 +193,7 @@ fn every_view_matches_its_snapshot() {
         &empty,
         &p,
         NOW,
-        Range::Week,
+        &Nav::default(),
         &none,
     )
     .expect("refresh");
@@ -178,7 +213,9 @@ fn render_cost() {
         devices: &[],
     };
     let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    watch.ui.global::<Mode>().set_reduce_motion(true);
     let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    panel.ui.global::<Mode>().set_reduce_motion(true);
     // A macro, not a closure: the surface is borrowed both for its global and for rendering.
     macro_rules! bench {
         ($name:literal, $frames:literal, $surface:expr) => {{
@@ -186,7 +223,7 @@ fn render_cost() {
             for i in 0..$frames {
                 let state = $surface.ui.global::<AppState>();
                 let t = Instant::now();
-                refresh(&state, &store, &p, NOW + i64::from(i), Range::Week, &live).expect("refresh");
+                refresh(&state, &store, &p, NOW + i64::from(i), &Nav::default(), &live).expect("refresh");
                 // A changing kcal value forces the same partial redraw a live tick causes.
                 state.set_kcal_text(i.to_string().into());
                 data += t.elapsed().as_secs_f64();

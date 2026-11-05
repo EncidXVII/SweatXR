@@ -141,6 +141,48 @@ pub fn ray(controller: &Mat) -> (Vec3, Vec3) {
     (position(controller), [-z[0], -z[1], -z[2]])
 }
 
+/// Laser texture: a strip this many texels long and 2 high. SteamVR keeps texel aspect, so at
+/// a 0.7 m reach the beam is 0.7 / 256 m = 2.7 mm thick.
+pub const LASER_PX: (u32, u32) = (512, 2);
+
+/// Lime beam fading in from the controller, straight RGBA.
+pub fn laser_texture() -> Vec<u8> {
+    let (w, h) = LASER_PX;
+    (0..w * h)
+        .flat_map(|i| {
+            let t = (i % w) as f32 / (w - 1) as f32;
+            [0xC6, 0xFF, 0x1A, (40.0 + 200.0 * t) as u8]
+        })
+        .collect()
+}
+
+/// Overlay transform for a beam from `from` to `to`, its flat side turned toward the eyes.
+/// Returns the transform and the beam length (the overlay width).
+pub fn laser(from: Vec3, to: Vec3, eye: Vec3) -> (Mat, f32) {
+    let len = distance(from, to).max(1e-3);
+    let x = norm(sub(to, from));
+    let mid = [
+        (from[0] + to[0]) / 2.0,
+        (from[1] + to[1]) / 2.0,
+        (from[2] + to[2]) / 2.0,
+    ];
+    let view = sub(eye, mid);
+    // Normal: the part of the view direction perpendicular to the beam.
+    let z = norm(sub(
+        view,
+        [x[0] * dot(view, x), x[1] * dot(view, x), x[2] * dot(view, x)],
+    ));
+    let y = cross(z, x);
+    let m = Mat {
+        m: [
+            [x[0], y[0], z[0], mid[0]],
+            [x[1], y[1], z[1], mid[1]],
+            [x[2], y[2], z[2], mid[2]],
+        ],
+    };
+    (m, len)
+}
+
 /// Overlay UV (origin bottom-left) to texture pixels (origin top-left).
 pub fn uv_to_px(uv: [f32; 2], width: u32, height: u32) -> (f32, f32) {
     (uv[0] * width as f32, (1.0 - uv[1]) * height as f32)
@@ -180,6 +222,18 @@ mod tests {
         (rolled.m[0][0], rolled.m[1][1]) = (-1.0, -1.0);
         assert_eq!(watch_look(&rolled, &head), WatchLook::Away);
         assert_eq!(watch_look(&at([0.0, 1.65, -0.05]), &head), WatchLook::Hidden);
+    }
+
+    #[test]
+    fn laser_spans_the_ray_and_faces_the_eye() {
+        let (m, len) = laser([0.0, 1.0, 0.0], [0.0, 1.0, -1.0], [0.0, 1.6, 0.2]);
+        assert!((len - 1.0).abs() < 1e-5);
+        assert_eq!(position(&m), [0.0, 1.0, -0.5]);
+        assert!(
+            dot(axis(&m, 0), [0.0, 0.0, -1.0]) > 0.999,
+            "beam axis along the ray"
+        );
+        assert!(axis(&m, 2)[1] > 0.9, "flat side up toward the eye above it");
     }
 
     #[test]

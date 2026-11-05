@@ -1,24 +1,25 @@
 // The three surfaces. Same pages and tokens everywhere; only the frame differs.
-import { Tokens } from "@tokens";
+import { Tokens, Mode } from "@tokens";
 import "fonts/Anton-Regular.ttf";
-import "fonts/Ubuntu-Light.ttf";
+import "fonts/Ubuntu-Regular.ttf";
 import { AppState, Feedback } from "state.slint";
 import { Button, Caption, Cursor, Ring, TabBar } from "kit.slint";
-import { ExportPage, FirstRunPage, HistoryPage, SettingsPage, TodayPage } from "pages.slint";
+import { FirstRunPage, HistoryPage, SessionsPage, SettingsPage, TodayPage } from "pages.slint";
 
-export { AppState, Feedback }
+export { AppState, Feedback, Mode }
 
 component Footer inherits Caption {
     text: "Calories are estimates. Not a medical device.";
     color: Tokens.ink3;
 }
 
-// Number in the display face with a small unit, so two readings fit next to the kcal.
+// Number in the display face with a small unit.
 component Reading inherits HorizontalLayout {
     in property <string> value;
     in property <string> unit;
     in property <bool> live;
     spacing: Tokens.space-1;
+    alignment: start;
     Text {
         text: root.value;
         color: root.live ? Tokens.accent : Tokens.ink;
@@ -32,45 +33,54 @@ component Reading inherits HorizontalLayout {
     }
 }
 
-// 8 cm on the wrist: ring, kcal big, active minutes and heart rate small.
+// 8 cm on the wrist. One glance answers one question: the ring with today's kcal inside.
+// Secondary readings sit to the side for a second look.
 export component WatchView inherits Window {
     width: 512px;
     height: 320px;
     background: Tokens.bg;
-    HorizontalLayout {
+    if !AppState.celebrate: HorizontalLayout {
         padding: Tokens.space-5;
         spacing: Tokens.space-5;
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 208px;
-                height: 208px;
+                width: 272px;
+                height: 272px;
                 Ring {
                     progress: AppState.progress;
                     thickness: 20px;
                 }
-                Text {
-                    text: AppState.percent-text;
-                    color: Tokens.ink2;
-                    font-size: Tokens.type-watch-small;
-                    font-family: Tokens.font-display;
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: AppState.kcal-text;
+                        color: Tokens.ink;
+                        font-size: Tokens.type-watch-big;
+                        font-family: Tokens.font-display;
+                        horizontal-alignment: center;
+                    }
+                    Caption {
+                        text: "KCAL EST.";
+                        horizontal-alignment: center;
+                    }
                 }
             }
         }
-        VerticalLayout {
+        if !AppState.panel-seen: Caption {
+            // Shown until the panel has been opened once: the gesture is not guessable.
+            text: "POINT HERE AND PULL THE TRIGGER";
+            color: Tokens.accent;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+        if AppState.panel-seen: VerticalLayout {
             alignment: center;
-            spacing: Tokens.space-1;
-            Text {
-                text: AppState.kcal-text;
-                color: Tokens.ink;
-                font-size: Tokens.type-watch-big;
-                font-family: Tokens.font-display;
-            }
-            HorizontalLayout {
+            spacing: Tokens.space-3;
+            if AppState.tracking: HorizontalLayout {
                 spacing: Tokens.space-2;
                 alignment: start;
-                // Lime dot: a session is being counted right now.
-                if AppState.tracking: VerticalLayout {
+                VerticalLayout {
                     alignment: center;
                     Rectangle {
                         width: Tokens.space-3;
@@ -80,22 +90,42 @@ export component WatchView inherits Window {
                     }
                 }
                 Caption {
-                    text: "KCAL EST.";
+                    text: "LIVE";
+                    color: Tokens.accent;
                 }
             }
-            HorizontalLayout {
-                padding-top: Tokens.space-3;
-                spacing: Tokens.space-5;
-                alignment: start;
-                Reading {
-                    value: AppState.active-value;
-                    unit: "MIN";
-                }
-                if AppState.hr-shown: Reading {
-                    value: AppState.hr-value;
-                    unit: "BPM";
-                    live: AppState.hr-live;
-                }
+            Reading {
+                value: AppState.active-value;
+                unit: "MIN";
+            }
+            if AppState.hr-shown: Reading {
+                value: AppState.hr-value;
+                unit: "BPM";
+                live: AppState.hr-live;
+            }
+            if AppState.hr-zone != "": Caption {
+                text: AppState.hr-zone;
+            }
+        }
+    }
+    // Goal reached: the whole face turns lime for a few seconds.
+    if AppState.celebrate: Rectangle {
+        background: Tokens.accent;
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: "GOAL";
+                color: Tokens.on-accent;
+                font-size: Tokens.type-watch-big;
+                font-family: Tokens.font-display;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: AppState.kcal-text + " KCAL";
+                color: Tokens.on-accent;
+                font-size: Tokens.type-watch-small;
+                font-family: Tokens.font-display;
+                horizontal-alignment: center;
             }
         }
     }
@@ -157,7 +187,7 @@ export component DesktopWindow inherits Window {
         HorizontalLayout {
             alignment: start;
             TabBar {
-                tabs: ["TODAY", "HISTORY", "EXPORT", "SETTINGS"];
+                tabs: ["TODAY", "HISTORY", "SESSIONS", "SETTINGS"];
                 selected <=> root.tab;
             }
         }
@@ -168,7 +198,7 @@ export component DesktopWindow inherits Window {
             show-range: true;
             vertical-stretch: 1;
         }
-        if root.tab == 2: ExportPage {
+        if root.tab == 2: SessionsPage {
             vertical-stretch: 1;
         }
         if root.tab == 3: SettingsPage {

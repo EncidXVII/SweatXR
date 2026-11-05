@@ -14,10 +14,12 @@ use fitvr_core::time::now_unix;
 use fitvr_core::tracker::{Event, Tracker};
 use fitvr_hr::{BleHr, FakeHr};
 use fitvr_ui::offscreen::{Pointer, Surface, install};
+use fitvr_ui::view::progress;
 use fitvr_ui::{AppState, Feedback, PanelView, WatchView};
 use fitvr_vr::{
-    AppKind, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT,
-    Vr, WATCH_OFFSET, WATCH_WIDTH_M, WatchLook, panel_in_front, ray, uv_to_px, valid, watch_look,
+    AppKind, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT,
+    ROLE_RIGHT, Vr, WATCH_OFFSET, WATCH_WIDTH_M, WatchLook, laser, laser_texture, panel_in_front, position,
+    ray, uv_to_px, valid, watch_look,
 };
 use slint::ComponentHandle;
 
@@ -28,6 +30,8 @@ use crate::setup::{self, ACTION_HAPTIC, ACTION_SELECT, ACTION_SET, Dirs};
 const POLL: Duration = Duration::from_millis(20);
 const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
 const GLANCE_HOLD: Duration = Duration::from_millis(300);
+/// How long the watch shows the lime GOAL face.
+const CELEBRATE: Duration = Duration::from_secs(4);
 const ALPHA_AWAY: f32 = 0.4;
 const HOME_KEY: &str = "steamvr.home";
 const HOME_NAME: &str = "SteamVR Home";
@@ -125,7 +129,13 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let ov_panel = vr.create_overlay("fitnessvr.panel", "FitnessVR")?;
     vr.set_width(ov_watch, WATCH_WIDTH_M)?;
     vr.set_width(ov_panel, PANEL_WIDTH_M)?;
+    let ov_laser = vr.create_overlay("fitnessvr.laser", "FitnessVR pointer")?;
     let mut tex = Textures::new(&vr);
+    tex.upload(&vr, ov_laser, 2, &mut laser_texture(), LASER_PX);
+    let mut laser_on = false;
+    // None until the first tick, so a goal already met at launch does not celebrate again.
+    let mut goal_met: Option<bool> = None;
+    let mut celebrate_until: Option<Instant> = None;
 
     let started = Instant::now();
     let mut meter = IntensityMeter::new(app.profile.height_cm);
@@ -186,6 +196,21 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             if panel_open {
                 app.show(&panel.ui.global::<AppState>(), now);
             }
+            let met = progress(&app.store, &app.profile, now).is_ok_and(|p| p >= 1.0);
+            if goal_met == Some(false) && met {
+                celebrate_until = Some(Instant::now() + CELEBRATE);
+                watch.ui.global::<AppState>().set_celebrate(true);
+                if let Some(inp) = &input {
+                    for h in [Hand::Left, Hand::Right] {
+                        vr.haptic(inp.haptic, inp.hand(h), 0.3, 0.8);
+                    }
+                }
+            }
+            goal_met = Some(met);
+        }
+        if celebrate_until.is_some_and(|t| Instant::now() >= t) {
+            celebrate_until = None;
+            watch.ui.global::<AppState>().set_celebrate(false);
         }
 
         let head = poses.get(HMD as usize).and_then(valid);
@@ -199,7 +224,15 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                     .is_ok();
             }
             (true, _) => {}
-            (false, _) => place_watch(&vr, ov_watch, &mut look, wrist, wrist_pose, head),
+            (false, _) => place_watch(
+                &vr,
+                ov_watch,
+                &mut look,
+                wrist,
+                wrist_pose,
+                head,
+                celebrate_until.is_some(),
+            ),
         }
 
         let pointer = vr
@@ -217,10 +250,13 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         select_down = pressed;
 
         let mut on_panel = false;
+        // Where the beam ends, if the pointer is on the watch or the panel.
+        let mut beam = None;
         if let (Some(ptr), true) = (pointer, panel_open) {
             let (o, d) = ray(ptr);
-            if let Some(uv) = vr.intersect(ov_panel, o, d) {
+            if let Some((uv, hit)) = vr.intersect(ov_panel, o, d) {
                 on_panel = true;
+                beam = Some((o, hit));
                 let (x, y) = uv_to_px(uv, PANEL_PX.0, PANEL_PX.1);
                 panel.pointer(x, y, Pointer::Move);
                 let s = panel.ui.global::<AppState>();
@@ -239,16 +275,20 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             panel.pointer(0.0, 0.0, Pointer::Leave);
             panel.ui.global::<AppState>().set_cursor_visible(false);
         }
-        let on_watch = !on_panel
+        if !on_panel
             && look.visible
-            && pointer.is_some_and(|p| {
-                let (o, d) = ray(p);
-                vr.intersect(ov_watch, o, d).is_some()
-            });
+            && let Some(p) = pointer
+        {
+            let (o, d) = ray(p);
+            beam = vr.intersect(ov_watch, o, d).map(|(_, hit)| (o, hit));
+        }
+        let on_watch = !on_panel && beam.is_some();
         watch.ui.global::<AppState>().set_cursor_visible(on_watch);
         if on_watch && down {
             panel_open = !panel_open;
             if let (true, Some(h)) = (panel_open, head) {
+                app.mark_panel_seen();
+                app.show(&watch.ui.global::<AppState>(), now);
                 app.show(&panel.ui.global::<AppState>(), now);
                 if let Err(e) = vr.place(ov_panel, &panel_in_front(h)) {
                     tracing::warn!("{e}");
@@ -256,6 +296,18 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             }
             let _ = vr.set_visible(ov_panel, panel_open);
             buzz.set(Some(Buzz::Press));
+        }
+
+        match (beam, head) {
+            (Some((from, to)), Some(h)) => {
+                let (m, len) = laser(from, to, position(h));
+                let placed = vr.place(ov_laser, &m).and_then(|()| vr.set_width(ov_laser, len));
+                if placed.is_ok() && !laser_on {
+                    laser_on = vr.set_visible(ov_laser, true).is_ok();
+                }
+            }
+            _ if laser_on => laser_on = vr.set_visible(ov_laser, false).is_err(),
+            _ => {}
         }
 
         if let (Some(inp), Some(b)) = (&input, buzz.take()) {
@@ -304,6 +356,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     }
     vr.destroy_overlay(ov_watch);
     vr.destroy_overlay(ov_panel);
+    vr.destroy_overlay(ov_laser);
     // SteamVR keeps a handle to our Vulkan images until it shuts down; destroying the device
     // first crashed on exit. So: OpenVR down, then the GPU objects.
     drop(vr);
@@ -315,7 +368,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// GPU textures when Vulkan works (slot 0 watch, 1 panel), else SetOverlayRaw, which leaks
+/// GPU textures when Vulkan works (slot 0 watch, 1 panel, 2 laser), else SetOverlayRaw, which leaks
 /// inside SteamVR and is only a fallback.
 struct Textures(Option<Gpu>);
 
@@ -324,6 +377,7 @@ impl Textures {
         let gpu = vr.gpu().and_then(|mut g| {
             g.add_texture(WATCH_PX.0, WATCH_PX.1)?;
             g.add_texture(PANEL_PX.0, PANEL_PX.1)?;
+            g.add_texture(LASER_PX.0, LASER_PX.1)?;
             Ok(g)
         });
         match gpu {
@@ -353,6 +407,7 @@ fn place_watch(
     wrist: Option<u32>,
     wrist_pose: Option<&Mat>,
     head: Option<&Mat>,
+    full: bool,
 ) {
     // Re-attach when SteamVR hands the role to another device (controller swap, restart).
     if wrist != look.attached_to {
@@ -368,6 +423,8 @@ fn place_watch(
         _ => WatchLook::Hidden,
     };
     let alpha = match state {
+        // Celebrating: full brightness wherever the wrist points.
+        _ if full => 1.0,
         WatchLook::Hidden => 0.0,
         WatchLook::Facing => {
             let since = *look.facing_since.get_or_insert_with(Instant::now);

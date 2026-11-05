@@ -1,6 +1,6 @@
 import { Tokens } from "@tokens";
-import { AppState, HrDevice } from "state.slint";
-import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Hit, Ring, Segmented, Stat, StepRow, Title } from "kit.slint";
+import { AppState, HrDevice, SessionRow } from "state.slint";
+import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Hit, Ring, Segmented, Stat, Stepper, StepRow, Title } from "kit.slint";
 
 // Profile rows shared by first run and settings. Rust clamps and saves on every change.
 component WeightRow inherits StepRow {
@@ -66,6 +66,19 @@ component GoalRow inherits StepRow {
     }
 }
 
+component RestingRow inherits StepRow {
+    label: "Resting heart rate";
+    value: "\{AppState.profile.resting-hr} bpm";
+    minus => {
+        AppState.profile.resting-hr -= 1;
+        AppState.profile-changed(AppState.profile);
+    }
+    plus => {
+        AppState.profile.resting-hr += 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
 export component FirstRunPage inherits VerticalLayout {
     padding: Tokens.space-7;
     spacing: Tokens.space-5;
@@ -75,13 +88,21 @@ export component FirstRunPage inherits VerticalLayout {
     }
     Caption {
         text: "Four answers make the estimates fit you. Change them any time in Settings.";
+        wrap: word-wrap;
     }
     WeightRow { }
     AgeRow { }
     SexRow { }
     GoalRow { }
     HorizontalLayout {
-        alignment: end;
+        spacing: Tokens.space-5;
+        Caption {
+            // The one gesture nobody can guess: teach it before the player is in VR.
+            text: "In VR: point at the watch on your wrist and pull the trigger to open the panel.";
+            color: Tokens.ink;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
         Button {
             text: "START";
             primary: true;
@@ -111,6 +132,7 @@ export component TodayPage inherits HorizontalLayout {
                 }
                 Caption {
                     text: AppState.goal-text;
+                    color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
                     horizontal-alignment: center;
                 }
             }
@@ -123,7 +145,7 @@ export component TodayPage inherits HorizontalLayout {
             }
             if AppState.hr-shown: Stat {
                 value: AppState.hr-text;
-                label: "HEART RATE";
+                label: AppState.hr-label;
                 live: AppState.hr-live;
             }
         }
@@ -151,6 +173,7 @@ export component HistoryPage inherits VerticalLayout {
     spacing: Tokens.space-5;
     HorizontalLayout {
         spacing: Tokens.space-5;
+        alignment: start;
         if root.show-range: Segmented {
             options: ["DAY", "WEEK", "MONTH"];
             selected: AppState.history-range;
@@ -159,6 +182,15 @@ export component HistoryPage inherits VerticalLayout {
                 AppState.history-range-changed(i);
             }
         }
+        Stepper {
+            label: AppState.history-label;
+            has-next: AppState.history-has-next;
+            step(d) => {
+                AppState.history-step(d);
+            }
+        }
+    }
+    HorizontalLayout {
         Body {
             text: AppState.history-total;
             horizontal-stretch: 1;
@@ -172,10 +204,87 @@ export component HistoryPage inherits VerticalLayout {
     BarChart {
         bars: AppState.bars;
         vertical-stretch: 1;
-        min-height: 200px;
+        min-height: 160px;
     }
     for game in AppState.history-games: GameRowView {
         game: game;
+    }
+}
+
+component SessionRowView inherits HorizontalLayout {
+    in property <SessionRow> session;
+    spacing: Tokens.space-4;
+    Caption {
+        text: root.session.time;
+        min-width: Tokens.size-control * 3;
+    }
+    Body {
+        text: root.session.name;
+        horizontal-stretch: 1;
+        overflow: elide;
+    }
+    Caption {
+        text: root.session.detail;
+    }
+    Body {
+        text: root.session.kcal;
+        min-width: Tokens.size-control * 2;
+        horizontal-alignment: right;
+    }
+    Button {
+        text: "TCX";
+        clicked => {
+            AppState.export-session(root.session.id);
+        }
+    }
+}
+
+// Desktop: one day's sessions, each exportable, plus whole-history CSV.
+export component SessionsPage inherits VerticalLayout {
+    spacing: Tokens.space-4;
+    alignment: start;
+    HorizontalLayout {
+        alignment: start;
+        Stepper {
+            label: AppState.sessions-label;
+            has-next: AppState.sessions-has-next;
+            step(d) => {
+                AppState.sessions-step(d);
+            }
+        }
+    }
+    if AppState.sessions.length == 0: Body {
+        text: "No sessions on this day.";
+        color: Tokens.ink2;
+    }
+    for s in AppState.sessions: SessionRowView {
+        session: s;
+    }
+    if AppState.sessions-more != "": Caption {
+        text: AppState.sessions-more;
+    }
+    HorizontalLayout {
+        spacing: Tokens.space-4;
+        alignment: start;
+        padding-top: Tokens.space-3;
+        Button {
+            text: "EXPORT DAY AS TCX";
+            primary: true;
+            enabled: AppState.sessions.length > 0;
+            clicked => {
+                AppState.export-day();
+            }
+        }
+        Button {
+            text: "EXPORT ALL AS CSV";
+            clicked => {
+                AppState.export-csv();
+            }
+        }
+    }
+    Caption {
+        text: AppState.export-status;
+        wrap: word-wrap;
     }
 }
 
@@ -207,15 +316,18 @@ component DeviceRow inherits Rectangle {
 
 export component SettingsPage inherits VerticalLayout {
     property <int> section;
+    // Destructive actions take two clicks; the first only arms the button.
+    property <bool> confirm-delete;
     spacing: Tokens.space-5;
     alignment: start;
     HorizontalLayout {
         alignment: start;
         Segmented {
-            options: ["PROFILE", "DEVICE"];
+            options: ["BODY", "WATCH", "STRAP", "DATA"];
             selected: root.section;
             picked(i) => {
                 root.section = i;
+                root.confirm-delete = false;
             }
         }
     }
@@ -225,10 +337,11 @@ export component SettingsPage inherits VerticalLayout {
         HeightRow { }
         AgeRow { }
         SexRow { }
-        GoalRow { }
+        RestingRow { }
     }
     if root.section == 1: VerticalLayout {
         spacing: Tokens.space-3;
+        GoalRow { }
         ChoiceRow {
             label: "Watch hand";
             options: ["LEFT", "RIGHT"];
@@ -256,6 +369,9 @@ export component SettingsPage inherits VerticalLayout {
                 AppState.profile-changed(AppState.profile);
             }
         }
+    }
+    if root.section == 2: VerticalLayout {
+        spacing: Tokens.space-3;
         HorizontalLayout {
             spacing: Tokens.space-3;
             Body {
@@ -275,36 +391,38 @@ export component SettingsPage inherits VerticalLayout {
         for device in AppState.hr-devices: DeviceRow {
             device: device;
         }
+        Caption {
+            text: AppState.calibration-text;
+            wrap: word-wrap;
+        }
     }
-}
-
-export component ExportPage inherits VerticalLayout {
-    spacing: Tokens.space-5;
-    alignment: start;
-    Body {
-        text: "Files go to Documents/FitnessVR. TCX opens in most fitness apps; CSV has every second.";
-        color: Tokens.ink2;
-        wrap: word-wrap;
-    }
-    HorizontalLayout {
+    if root.section == 3: VerticalLayout {
         spacing: Tokens.space-4;
-        alignment: start;
-        Button {
-            text: "EXPORT TODAY AS TCX";
-            primary: true;
-            clicked => {
-                AppState.export-tcx();
+        Body {
+            text: "Everything stays on this computer, in one file:";
+            color: Tokens.ink2;
+        }
+        Caption {
+            text: AppState.data-path;
+            color: Tokens.ink;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            alignment: start;
+            padding-top: Tokens.space-3;
+            Button {
+                text: root.confirm-delete ? "CONFIRM: DELETE ALL HISTORY" : "DELETE ALL HISTORY";
+                danger: root.confirm-delete;
+                clicked => {
+                    if root.confirm-delete {
+                        AppState.delete-history();
+                    }
+                    root.confirm-delete = !root.confirm-delete;
+                }
             }
         }
-        Button {
-            text: "EXPORT ALL AS CSV";
-            clicked => {
-                AppState.export-csv();
-            }
+        Caption {
+            text: AppState.data-status;
         }
-    }
-    Caption {
-        text: AppState.export-status;
-        wrap: word-wrap;
     }
 }

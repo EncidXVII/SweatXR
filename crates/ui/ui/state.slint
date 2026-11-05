@@ -14,12 +14,21 @@ export struct Bar {
     met: bool,
 }
 
+export struct SessionRow {
+    id: int,
+    time: string,
+    name: string,
+    detail: string,
+    kcal: string,
+}
+
 export struct ProfileData {
     weight: float,
     height: float,
     age: int,
     female: bool,
     goal: int,
+    resting-hr: int,
     right-hand: bool,
     imperial: bool,
     auto-start: bool,
@@ -38,33 +47,52 @@ export global Feedback {
 }
 
 export global AppState {
+    // Today
     in property <float> progress;
-    in property <string> percent-text;
     in property <string> kcal-text;
     in property <string> goal-text;
+    in property <bool> goal-met;
     in property <string> active-text;
     in property <string> active-value;
     in property <string> hr-text;
     in property <string> hr-value;
+    in property <string> hr-label;
+    in property <string> hr-zone;
     in property <bool> hr-live;
     in property <bool> hr-shown;
     in property <bool> tracking;
+    in property <bool> celebrate;
+    in property <bool> panel-seen: true;
     in property <[GameRow]> games;
+    in property <string> empty-text: "Play anything in SteamVR and it shows up here.";
 
+    // History
     in property <[Bar]> bars;
+    in property <string> history-label;
+    in property <bool> history-has-next;
     in property <string> history-total;
     in property <string> streak-text;
     in property <[GameRow]> history-games;
     in-out property <int> history-range: 1;
 
+    // Sessions (desktop)
+    in property <[SessionRow]> sessions;
+    in property <string> sessions-label;
+    in property <bool> sessions-has-next;
+    in property <string> sessions-more;
+    in property <string> export-status;
+
+    // Settings
     in-out property <ProfileData> profile;
     in property <string> hr-status;
     in property <bool> hr-scanning;
     in property <[HrDevice]> hr-devices;
+    in property <string> calibration-text;
+    in property <string> data-path;
+    in property <string> data-status;
     in property <bool> first-run;
-    in property <string> export-status;
-    in property <string> empty-text: "Play anything in SteamVR and it shows up here.";
 
+    // VR pointer
     in property <bool> cursor-visible;
     in property <length> cursor-x;
     in property <length> cursor-y;
@@ -72,9 +100,13 @@ export global AppState {
     callback profile-changed(ProfileData);
     callback finish-first-run();
     callback history-range-changed(int);
+    callback history-step(int);
+    callback sessions-step(int);
     callback hr-scan();
     callback hr-pick(string);
-    callback export-tcx();
+    callback export-session(int);
+    callback export-day();
     callback export-csv();
+    callback delete-history();
     callback close-panel();
 }

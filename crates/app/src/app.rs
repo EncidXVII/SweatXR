@@ -7,10 +7,10 @@ use std::rc::Rc;
 use fitvr_core::energy::fit_calibration;
 use fitvr_core::export::{csv, tcx};
 use fitvr_core::profile::Profile;
-use fitvr_core::storage::Store;
-use fitvr_core::time::{civil, now_unix};
+use fitvr_core::storage::{Session, Store};
+use fitvr_core::time::{Day, civil, now_unix};
 use fitvr_hr::{BleHr, Device, FakeHr, HrSource, Status};
-use fitvr_ui::view::{Live, Range, apply_profile, refresh};
+use fitvr_ui::view::{Live, Nav, Range, apply_profile, refresh};
 use fitvr_ui::{AppState, ProfileData};
 
 use crate::setup::Dirs;
@@ -19,10 +19,14 @@ pub enum UiCmd {
     Profile(ProfileData),
     FinishFirstRun,
     Range(i32),
+    HistoryStep(i32),
+    SessionsStep(i32),
     HrScan,
     HrPick(String),
-    ExportTcx,
+    ExportSession(i64),
+    ExportDay,
     ExportCsv,
+    DeleteHistory,
     ClosePanel,
 }
 
@@ -42,13 +46,21 @@ pub fn wire(s: &AppState, q: &Queue) {
     let p = push(q);
     s.on_history_range_changed(move |i| p(UiCmd::Range(i)));
     let p = push(q);
+    s.on_history_step(move |d| p(UiCmd::HistoryStep(d)));
+    let p = push(q);
+    s.on_sessions_step(move |d| p(UiCmd::SessionsStep(d)));
+    let p = push(q);
     s.on_hr_scan(move || p(UiCmd::HrScan));
     let p = push(q);
     s.on_hr_pick(move |id| p(UiCmd::HrPick(id.into())));
     let p = push(q);
-    s.on_export_tcx(move || p(UiCmd::ExportTcx));
+    s.on_export_session(move |id| p(UiCmd::ExportSession(i64::from(id))));
+    let p = push(q);
+    s.on_export_day(move || p(UiCmd::ExportDay));
     let p = push(q);
     s.on_export_csv(move || p(UiCmd::ExportCsv));
+    let p = push(q);
+    s.on_delete_history(move || p(UiCmd::DeleteHistory));
     let p = push(q);
     s.on_close_panel(move || p(UiCmd::ClosePanel));
 }
@@ -99,9 +111,11 @@ pub struct App {
     pub tracking: bool,
     /// Replaces the empty-state hint, e.g. when SteamVR is missing.
     pub notice: Option<String>,
-    range: Range,
+    nav: Nav,
     export_status: String,
+    data_status: String,
     export_dir: std::path::PathBuf,
+    db_path: String,
 }
 
 impl App {
@@ -114,9 +128,11 @@ impl App {
             notice: None,
             store,
             profile,
-            range: Range::Week,
+            nav: Nav::default(),
             export_status: String::new(),
+            data_status: String::new(),
             export_dir: dirs.export.clone(),
+            db_path: dirs.db().display().to_string(),
         })
     }
 
@@ -145,7 +161,15 @@ impl App {
                 onboarded: true,
                 ..self.profile.clone()
             }),
-            UiCmd::Range(i) => self.range = Range::from_index(i),
+            UiCmd::Range(i) => {
+                self.nav = Nav {
+                    range: Range::from_index(i),
+                    history_offset: 0,
+                    ..self.nav
+                }
+            }
+            UiCmd::HistoryStep(d) => self.nav.history_offset = (self.nav.history_offset + d).min(0),
+            UiCmd::SessionsStep(d) => self.nav.sessions_offset = (self.nav.sessions_offset + d).min(0),
             UiCmd::HrScan => match &self.hr {
                 Hr::Live(b) | Hr::PairOnly(b) => b.scan(),
                 Hr::Fake(_) => {}
@@ -160,46 +184,76 @@ impl App {
                     ..self.profile.clone()
                 });
             }
-            UiCmd::ExportTcx => {
-                self.export_status = self
-                    .export(true)
-                    .unwrap_or_else(|e| format!("Export failed: {e}"))
-            }
-            UiCmd::ExportCsv => {
-                self.export_status = self
-                    .export(false)
-                    .unwrap_or_else(|e| format!("Export failed: {e}"))
+            UiCmd::ExportSession(id) => self.export_status = self.report(self.export_tcx(Some(id))),
+            UiCmd::ExportDay => self.export_status = self.report(self.export_tcx(None)),
+            UiCmd::ExportCsv => self.export_status = self.report(self.export_csv()),
+            UiCmd::DeleteHistory => {
+                self.data_status = match self.store.delete_history() {
+                    Ok(()) => "History deleted. Your profile is kept.".into(),
+                    Err(e) => format!("Delete failed: {e}"),
+                }
             }
             UiCmd::ClosePanel => return true,
         }
         false
     }
 
-    fn export(&self, as_tcx: bool) -> Result<String, Box<dyn Error>> {
-        std::fs::create_dir_all(&self.export_dir)?;
-        let now = now_unix();
-        let today = self.store.day(now);
-        let (y, m, d) = civil(today);
-        let (name, body) = if as_tcx {
-            let start = self.store.day_start(today);
-            let sessions = self.store.sessions(start, start + 86_400)?;
-            if sessions.is_empty() {
-                return Ok("No sessions today yet.".into());
-            }
-            let with_samples = sessions
-                .into_iter()
-                .map(|s| self.store.samples(s.id).map(|x| (s, x)))
-                .collect::<Result<Vec<_>, _>>()?;
-            (format!("fitvr-{y:04}-{m:02}-{d:02}.tcx"), tcx(&with_samples))
-        } else {
-            (
-                format!("fitvr-all-{y:04}-{m:02}-{d:02}.csv"),
-                csv(&self.store.samples_since(0)?),
-            )
+    fn report(&self, r: Result<String, Box<dyn Error>>) -> String {
+        r.unwrap_or_else(|e| format!("Export failed: {e}"))
+    }
+
+    fn sessions_day(&self) -> Day {
+        self.store.day(now_unix()) + self.nav.sessions_offset
+    }
+
+    /// One session, or every session of the day shown on the Sessions page.
+    fn export_tcx(&self, only: Option<i64>) -> Result<String, Box<dyn Error>> {
+        let day = self.sessions_day();
+        let start = self.store.day_start(day);
+        let sessions: Vec<Session> = self
+            .store
+            .sessions(start, self.store.day_start(day + 1))?
+            .into_iter()
+            .filter(|s| only.is_none_or(|id| s.id == id))
+            .collect();
+        if sessions.is_empty() {
+            return Ok("No sessions on this day.".into());
+        }
+        let with_samples = sessions
+            .into_iter()
+            .map(|s| self.store.samples(s.id).map(|x| (s, x)))
+            .collect::<Result<Vec<_>, _>>()?;
+        let (y, m, d) = civil(day);
+        let name = match only {
+            Some(id) => format!("fitvr-{y:04}-{m:02}-{d:02}-session-{id}.tcx"),
+            None => format!("fitvr-{y:04}-{m:02}-{d:02}.tcx"),
         };
-        let path = self.export_dir.join(&name);
+        self.write(&name, &tcx(&with_samples))
+    }
+
+    fn export_csv(&self) -> Result<String, Box<dyn Error>> {
+        let (y, m, d) = civil(self.store.day(now_unix()));
+        self.write(
+            &format!("fitvr-all-{y:04}-{m:02}-{d:02}.csv"),
+            &csv(&self.store.samples_since(0)?),
+        )
+    }
+
+    fn write(&self, name: &str, body: &str) -> Result<String, Box<dyn Error>> {
+        std::fs::create_dir_all(&self.export_dir)?;
+        let path = self.export_dir.join(name);
         std::fs::write(&path, body)?;
         Ok(format!("Saved {}", path.display()))
+    }
+
+    /// The overlay calls this when the panel opens, so the watch stops teaching the gesture.
+    pub fn mark_panel_seen(&mut self) {
+        if !self.profile.panel_seen {
+            self.save(Profile {
+                panel_seen: true,
+                ..self.profile.clone()
+            });
+        }
     }
 
     /// Refit the motion model from recent HR-backed seconds; called when a session ends.
@@ -230,10 +284,12 @@ impl App {
             hr_status: self.hr.status(),
             devices: &devices,
         };
-        if let Err(e) = refresh(s, &self.store, &self.profile, now, self.range, &live) {
+        if let Err(e) = refresh(s, &self.store, &self.profile, now, &self.nav, &live) {
             tracing::warn!("refresh: {e}");
         }
         s.set_export_status(self.export_status.as_str().into());
+        s.set_data_status(self.data_status.as_str().into());
+        s.set_data_path(self.db_path.as_str().into());
         if let Some(n) = &self.notice {
             s.set_empty_text(n.as_str().into());
         }
@@ -302,8 +358,8 @@ mod tests {
     #[test]
     fn exports_write_files_and_report() {
         let (mut a, root) = app("export");
-        a.handle(UiCmd::ExportTcx);
-        assert_eq!(a.export_status, "No sessions today yet.");
+        a.handle(UiCmd::ExportDay);
+        assert_eq!(a.export_status, "No sessions on this day.");
         let now = now_unix();
         let mut t = Tracker::new();
         // Clamped to today's start so the test also holds just after midnight.
@@ -312,13 +368,17 @@ mod tests {
             let ev = t.tick(ts, 1.0, Some(140), "g", &a.profile);
             a.store.apply(&ev).expect("apply");
         }
-        a.handle(UiCmd::ExportTcx);
+        a.handle(UiCmd::ExportDay);
+        let id = a.store.sessions(0, i64::MAX).expect("sessions")[0].id;
+        a.handle(UiCmd::ExportSession(id));
         a.handle(UiCmd::ExportCsv);
         let files: Vec<_> = std::fs::read_dir(root.join("export"))
             .expect("dir")
             .flatten()
             .collect();
-        assert_eq!(files.len(), 2, "{}", a.export_status);
+        assert_eq!(files.len(), 3, "{}", a.export_status);
+        a.handle(UiCmd::DeleteHistory);
+        assert!(a.store.sessions(0, i64::MAX).expect("sessions").is_empty());
         assert!(a.export_status.starts_with("Saved "));
         drop(a);
         let _ = std::fs::remove_dir_all(root);

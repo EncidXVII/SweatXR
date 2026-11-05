@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use fitvr_core::time::now_unix;
 use fitvr_hr::BleHr;
-use fitvr_ui::{AppState, DesktopWindow};
+use fitvr_ui::{AppState, DesktopWindow, Mode};
 use slint::{ComponentHandle, Timer, TimerMode};
 
 use crate::app::{App, Hr, Queue, wire};
@@ -27,6 +27,8 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
             Some("SteamVR is not installed. Install it from Steam to get the watch in VR.".into());
     }
     let ui = DesktopWindow::new()?;
+    // Desk distance: denser type and controls than the VR panel, from the same tokens.
+    ui.global::<Mode>().set_desktop(true);
     let queue = Queue::default();
     wire(&ui.global::<AppState>(), &queue);
     app.borrow().show(&ui.global::<AppState>(), now_unix());
