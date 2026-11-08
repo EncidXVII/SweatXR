@@ -7,6 +7,8 @@ version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-only"
 rust-version = "1.88"
+repository = "https://github.com/EncidXVII/FitnessVR"
+homepage = "https://encidxvii.github.io/FitnessVR/"
 
 [workspace.dependencies]
 fitvr-core = { path = "crates/core" }

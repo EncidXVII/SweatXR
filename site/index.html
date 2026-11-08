@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitnessVR: free VR fitness tracker and calorie counter for SteamVR</title>
+<meta name="description" content="Free, open-source VR fitness tracker. A wrist watch in every SteamVR game shows calories burned, active minutes and heart rate. Works with Valve Index, Steam Frame and Quest via Steam Link. No account, data stays local.">
+<link rel="canonical" href="https://encidxvii.github.io/FitnessVR/">
+<meta name="theme-color" content="#0C0B0A">
+<link rel="icon" type="image/png" href="img/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FitnessVR">
+<meta property="og:title" content="FitnessVR: a fitness watch for every SteamVR game">
+<meta property="og:description" content="Calories, active minutes and heart rate on your wrist in any VR game. Free, open source, private.">
+<meta property="og:url" content="https://encidxvii.github.io/FitnessVR/">
+<meta property="og:image" content="https://encidxvii.github.io/FitnessVR/img/social.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="FitnessVR watch overlay showing calories, active minutes and heart rate">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FitnessVR: a fitness watch for every SteamVR game">
+<meta name="twitter:description" content="Calories, active minutes and heart rate on your wrist in any VR game. Free, open source, private.">
+<meta name="twitter:image" content="https://encidxvii.github.io/FitnessVR/img/social.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FitnessVR",
+  "applicationCategory": "HealthApplication",
+  "applicationSubCategory": "VR fitness tracker",
+  "operatingSystem": "Windows 10, Windows 11, Linux, SteamOS",
+  "description": "Free, open-source VR fitness tracker for SteamVR: a wrist watch overlay with calories, active minutes, heart rate and a daily goal ring in every game.",
+  "url": "https://encidxvii.github.io/FitnessVR/",
+  "downloadUrl": "https://github.com/EncidXVII/FitnessVR/releases/latest",
+  "softwareVersion": "1.0.0",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "isAccessibleForFree": true,
+  "image": "https://encidxvii.github.io/FitnessVR/img/social.png",
+  "screenshot": "https://encidxvii.github.io/FitnessVR/img/panel.png",
+  "featureList": ["Wrist watch overlay in every SteamVR game", "Calories burned per game", "Bluetooth LE heart rate strap support", "Calorie estimate from motion without a strap", "Daily goal, streaks and history", "TCX and CSV export", "No account, no telemetry"],
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How many calories does VR gaming burn?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the game and on you. Rhythm and boxing games often reach the effort of brisk walking or jogging, while seated games burn little more than resting. FitnessVR measures your own sessions, so you see the real number for each game."}},
+    {"@type": "Question", "name": "Does FitnessVR work with Meta Quest?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, when the Quest plays SteamVR games from a PC through Steam Link, Virtual Desktop or a Link cable. Standalone Quest games are not tracked."}},
+    {"@type": "Question", "name": "Does it work on Steam Frame?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The Linux arm64 build runs natively on the headset in Developer Mode, and the PC build works when streaming."}},
+    {"@type": "Question", "name": "Do I need a heart rate monitor?", "acceptedAnswer": {"@type": "Answer", "text": "No. Without one, calories are estimated from head and hand movement. A Bluetooth LE heart rate strap improves the estimate and calibrates the movement model to you."}},
+    {"@type": "Question", "name": "Does it slow down my games?", "acceptedAnswer": {"@type": "Answer", "text": "No. It reads tracking from SteamVR and draws a small overlay in about 0.1 ms; it never touches game files."}},
+    {"@type": "Question", "name": "Is FitnessVR free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. It is free and open source under GPL-3.0, with no account, ads or subscription."}}
+  ]
+}
+</script>
+<style>
+@font-face { font-family: Anton; src: url(fonts/Anton-Regular.ttf) format("truetype"); font-display: swap; }
+@font-face { font-family: Ubuntu; src: url(fonts/Ubuntu-Regular.ttf) format("truetype"); font-display: swap; }
+:root {
+  --bg: #0C0B0A; --surface: #15130F; --raised: #1F1C18; --line: #2A2622;
+  --ink: #F4F1EC; --ink2: #AAA49B; --ink3: #8A847B; --accent: #C6FF1A; --on-accent: #0C0B0A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 18px/1.55 Ubuntu, system-ui, sans-serif; }
+a { color: var(--accent); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+.brand { font: 28px Anton, Impact, sans-serif; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+nav a { color: var(--ink2); text-decoration: none; margin-left: 20px; }
+nav a:hover { color: var(--ink); }
+h1, h2 { font-family: Anton, Impact, sans-serif; font-weight: 400; text-transform: uppercase; line-height: 1.05; margin: 0 0 16px; }
+h1 { font-size: clamp(44px, 7vw, 84px); }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-size: clamp(32px, 4vw, 48px); }
+h3 { font-size: 20px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 48px 0 72px; }
+.lede { font-size: 21px; color: var(--ink2); max-width: 34em; margin: 0 0 32px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-block; padding: 16px 24px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 2px solid var(--line); color: var(--ink); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn:hover { border-color: var(--ink3); }
+.small { font-size: 15px; color: var(--ink3); margin-top: 16px; }
+.hero img { width: 100%; height: auto; border-radius: 24px; }
+section { padding: 64px 0; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+.card p { color: var(--ink2); margin: 0; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+figure { margin: 0; }
+figure img { width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+figcaption { color: var(--ink3); font-size: 15px; margin-top: 8px; }
+ol.steps { padding-left: 24px; color: var(--ink2); max-width: 46em; }
+ol.steps li { margin-bottom: 12px; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; }
+summary { cursor: pointer; font-weight: 700; }
+details p { color: var(--ink2); margin: 12px 0 0; }
+footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--ink3); font-size: 15px; }
+@media (max-width: 800px) {
+  .hero, .shots { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; }
+  nav { display: none; }
+  .hero { padding-top: 16px; gap: 32px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="./">FitnessVR</a>
+  <nav><a href="#features">Features</a><a href="#install">Install</a><a href="#faq">FAQ</a><a href="https://github.com/EncidXVII/FitnessVR">GitHub</a></nav>
+</header>
+
+<main>
+<div class="hero">
+  <div>
+    <h1>A fitness watch for <em>every</em> VR game</h1>
+    <p class="lede">FitnessVR is a free VR fitness tracker for SteamVR. Glance at your wrist in any game to see calories burned, active minutes and heart rate, with a daily goal ring. No mods, no account, and your data stays on your computer.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/EncidXVII/FitnessVR/releases/latest/download/fitvr-windows-x64.zip">Download for Windows</a>
+      <a class="btn" href="https://github.com/EncidXVII/FitnessVR/releases/latest">Linux and Steam Frame</a>
+    </div>
+    <p class="small">Free and open source (GPL-3.0). Windows x64, Linux x64, Linux arm64. Version 1.0.0.</p>
+  </div>
+  <img src="img/watch.png" width="512" height="320" alt="FitnessVR wrist watch overlay: goal ring marked DONE, 321 kcal, 40 active minutes, 142 bpm">
+</div>
+
+<section id="features">
+  <h2>Built for how you play</h2>
+  <div class="grid">
+    <div class="card"><h3>Every SteamVR game</h3><p>No mods or per-game support. Rhythm, boxing, dance, sports and flat-to-VR ports all count.</p></div>
+    <div class="card"><h3>Calories per game</h3><p>See which game burns the most, with daily goals, streaks, and week and 30-day history.</p></div>
+    <div class="card"><h3>Heart rate straps</h3><p>Pair any Bluetooth LE heart rate strap for better estimates, with live bpm and zone on your wrist.</p></div>
+    <div class="card"><h3>No strap? Still counts</h3><p>Effort is estimated from head and hand movement, then calibrated to you after 20 minutes with a strap.</p></div>
+    <div class="card"><h3>Stays out of the way</h3><p>The watch dims when you look away, brightens on a glance and hides near your face. Under 0.1 ms per redraw.</p></div>
+    <div class="card"><h3>Private and portable</h3><p>No account, cloud or telemetry. Export TCX for your fitness apps, or CSV with every second.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>In VR and on your desktop</h2>
+  <div class="shots">
+    <figure><img src="img/panel.png" width="1200" height="800" loading="lazy" alt="FitnessVR panel in VR: today's calories against the goal and calories per game"><figcaption>Point at the watch and pull the trigger to open the panel.</figcaption></figure>
+    <figure><img src="img/history.png" width="1200" height="800" loading="lazy" alt="FitnessVR desktop app: 30-day calorie history with calories per game"><figcaption>History, sessions and export in the desktop app.</figcaption></figure>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install in 3 steps</h2>
+  <ol class="steps">
+    <li>Download the archive for your system from the <a href="https://github.com/EncidXVII/FitnessVR/releases/latest">latest release</a> and check it against its <code>.sha256</code> file.</li>
+    <li>Windows: unpack the zip and keep the folder. Linux or Steam Frame (Developer Mode): make the AppImage executable, or unpack the tar.gz and run <code>./install.sh</code>.</li>
+    <li>Start SteamVR and run <code>fitvr</code> once. It registers itself and starts with SteamVR from then on.</li>
+  </ol>
+  <p class="small">Works with Valve Index, Steam Frame, HTC Vive, Pimax, Bigscreen Beyond, Windows Mixed Reality, and Meta Quest through Steam Link, Virtual Desktop or a Link cable.</p>
+</section>
+
+<section id="faq">
+  <h2>FAQ</h2>
+  <details><summary>How many calories does VR gaming burn?</summary><p>It depends on the game and on you. Rhythm and boxing games often reach the effort of brisk walking or jogging, while seated games burn little more than resting. FitnessVR measures your own sessions, so you see the real number for each game.</p></details>
+  <details><summary>Does FitnessVR work with Meta Quest?</summary><p>Yes, when the Quest plays SteamVR games from a PC through Steam Link, Virtual Desktop or a Link cable. Standalone Quest games are not tracked.</p></details>
+  <details><summary>Does it work on Steam Frame?</summary><p>Yes. The Linux arm64 build runs natively on the headset in Developer Mode, and the PC build works when streaming.</p></details>
+  <details><summary>Do I need a heart rate monitor?</summary><p>No. Without one, calories are estimated from head and hand movement. A Bluetooth LE heart rate strap improves the estimate and calibrates the movement model to you.</p></details>
+  <details><summary>Does it slow down my games?</summary><p>No. It reads tracking from SteamVR and draws a small overlay in about 0.1 ms; it never touches game files.</p></details>
+  <details><summary>Is FitnessVR free?</summary><p>Yes. It is free and open source under GPL-3.0, with no account, ads or subscription.</p></details>
+  <p class="small">Calorie numbers are estimates; FitnessVR is not a medical device.</p>
+</section>
+</main>
+
+<footer>
+  FitnessVR is free software under the GPL-3.0. <a href="https://github.com/EncidXVII/FitnessVR">Source on GitHub</a> · <a href="https://github.com/EncidXVII/FitnessVR/issues">Report an issue</a>
+</footer>
+</div>
+</body>
+</html>

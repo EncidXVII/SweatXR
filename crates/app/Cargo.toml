@@ -1,6 +1,11 @@
 [package]
 name = "fitvr"
-description = "Cross-game VR fitness tracker: SteamVR watch overlay, panel and desktop app"
+description = "VR fitness tracker for SteamVR: a wrist watch overlay with calories, active minutes and heart rate in every game"
+readme = "../../README.md"
+keywords = ["vr", "fitness", "steamvr", "openvr", "heart-rate"]
+categories = ["games", "visualization"]
+repository.workspace = true
+homepage.workspace = true
 version.workspace = true
 edition.workspace = true
 license.workspace = true

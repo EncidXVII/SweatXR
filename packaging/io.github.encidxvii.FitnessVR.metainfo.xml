@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.encidxvii.FitnessVR</id>
+  <name>FitnessVR</name>
+  <summary>Fitness watch for every SteamVR game</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <developer id="io.github.encidxvii">
+    <name>EncidXVII</name>
+  </developer>
+  <description>
+    <p>FitnessVR is a free VR fitness tracker. A watch on your wrist shows calories burned,
+    active minutes, heart rate and a daily goal ring in any SteamVR game, with no mods or
+    per-game support.</p>
+    <ul>
+      <li>Calories and active minutes per game, daily goal, streaks and history</li>
+      <li>Bluetooth LE heart rate straps, or an estimate from head and hand movement</li>
+      <li>Export to TCX and CSV</li>
+      <li>No account, no telemetry: all data stays on your computer</li>
+    </ul>
+    <p>Calorie numbers are estimates; this is not a medical device.</p>
+  </description>
+  <launchable type="desktop-id">fitvr.desktop</launchable>
+  <url type="homepage">https://encidxvii.github.io/FitnessVR/</url>
+  <url type="bugtracker">https://github.com/EncidXVII/FitnessVR/issues</url>
+  <url type="vcs-browser">https://github.com/EncidXVII/FitnessVR</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The wrist watch overlay</caption>
+      <image>https://encidxvii.github.io/FitnessVR/img/watch.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The panel in VR</caption>
+      <image>https://encidxvii.github.io/FitnessVR/img/panel.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>History in the desktop app</caption>
+      <image>https://encidxvii.github.io/FitnessVR/img/history.png</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Game</category>
+    <category>Sports</category>
+  </categories>
+  <keywords>
+    <keyword>VR</keyword>
+    <keyword>fitness</keyword>
+    <keyword>calories</keyword>
+    <keyword>heart rate</keyword>
+    <keyword>SteamVR</keyword>
+    <keyword>workout</keyword>
+  </keywords>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2026-11-08"/>
+  </releases>
+</component>
