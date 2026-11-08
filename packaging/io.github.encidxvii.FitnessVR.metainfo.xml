@@ -21,21 +21,21 @@
     <p>Calorie numbers are estimates; this is not a medical device.</p>
   </description>
   <launchable type="desktop-id">fitvr.desktop</launchable>
-  <url type="homepage">https://encidxvii.github.io/FitnessVR/</url>
+  <url type="homepage">https://github.com/EncidXVII/FitnessVR</url>
   <url type="bugtracker">https://github.com/EncidXVII/FitnessVR/issues</url>
   <url type="vcs-browser">https://github.com/EncidXVII/FitnessVR</url>
   <screenshots>
     <screenshot type="default">
       <caption>The wrist watch overlay</caption>
-      <image>https://encidxvii.github.io/FitnessVR/img/watch.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__watch.snap.png</image>
     </screenshot>
     <screenshot>
       <caption>The panel in VR</caption>
-      <image>https://encidxvii.github.io/FitnessVR/img/panel.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__panel_today.snap.png</image>
     </screenshot>
     <screenshot>
       <caption>History in the desktop app</caption>
-      <image>https://encidxvii.github.io/FitnessVR/img/history.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__desktop_history_month.snap.png</image>
     </screenshot>
   </screenshots>
   <categories>
