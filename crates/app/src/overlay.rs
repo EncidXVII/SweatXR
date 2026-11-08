@@ -89,6 +89,7 @@ struct Look {
 
 pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let vr = Vr::init(AppKind::Overlay)?;
+    tracing::info!("overlay {} started", env!("CARGO_PKG_VERSION"));
     let mut app = App::open(dirs, |p| {
         if opts.fake_hr {
             Hr::Fake(FakeHr::workout())
@@ -96,7 +97,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             Hr::Live(BleHr::start(p.hr_device.clone()))
         }
     })?;
-    if let Err(e) = setup::register(&vr, dirs, app.profile.auto_start) {
+    if let Err(e) = setup::register(vr.apps(), dirs, app.profile.auto_start) {
         tracing::warn!("register with SteamVR: {e}");
     }
     let input = Input::new(&vr, dirs)
@@ -172,6 +173,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             last_sec = now;
             if scene_dirty || now % 5 == 0 {
                 scene = vr
+                    .apps()
                     .scene_app()
                     .unwrap_or_else(|| (HOME_KEY.to_owned(), HOME_NAME.to_owned()));
                 scene_dirty = false;
@@ -452,7 +454,7 @@ fn place_watch(
 
 fn apply_profile_change(vr: &Vr, app: &App, old: &fitvr_core::profile::Profile) {
     if old.auto_start != app.profile.auto_start
-        && let Err(e) = vr.set_auto_launch(setup::APP_KEY, app.profile.auto_start)
+        && let Err(e) = vr.apps().set_auto_launch(setup::APP_KEY, app.profile.auto_start)
     {
         tracing::warn!("{e}");
     }

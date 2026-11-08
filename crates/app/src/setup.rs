@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use fitvr_vr::{AppKind, Vr};
+use fitvr_vr::{AppKind, Apps, ERR_NO_SERVER};
 
 pub const APP_KEY: &str = "local.fitnessvr.overlay";
 pub const ACTION_SET: &str = "/actions/main";
@@ -111,19 +111,40 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
     Ok(path)
 }
 
-pub fn register(vr: &Vr, dirs: &Dirs, auto_start: bool) -> Result<(), Box<dyn Error>> {
-    vr.add_manifest(&write_vrmanifest(dirs)?)?;
-    vr.set_auto_launch(APP_KEY, auto_start)?;
+pub fn register(apps: &Apps, dirs: &Dirs, auto_start: bool) -> Result<(), Box<dyn Error>> {
+    apps.add_manifest(&write_vrmanifest(dirs)?)?;
+    apps.set_auto_launch(APP_KEY, auto_start)?;
     Ok(())
 }
 
-/// `fitvr --register`: run by the desktop app so auto-start works before the first VR session.
+/// `fitvr --register`, spawned by the desktop app. Registers the overlay with SteamVR so it
+/// starts with it. If SteamVR is already running and auto-start is on, also starts the overlay
+/// now, so nobody has to restart SteamVR after installing.
 pub fn register_utility(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let auto_start = fitvr_core::storage::Store::open(&dirs.db())?
         .profile()?
         .auto_start;
-    let vr = Vr::init(AppKind::Utility)?;
-    register(&vr, dirs, auto_start)?;
-    tracing::info!("registered with SteamVR, auto-start {auto_start}");
+    // A background connection never starts SteamVR, so it doubles as an "is it running" check.
+    match Apps::init(AppKind::Background) {
+        Ok(apps) => {
+            register(&apps, dirs, auto_start)?;
+            if !auto_start {
+                tracing::info!("registered with SteamVR; auto-start is off, overlay not started");
+            } else if apps.running(APP_KEY) {
+                tracing::info!("registered with SteamVR; overlay already running");
+            } else {
+                apps.launch(APP_KEY)?;
+                tracing::info!("registered with SteamVR and started the overlay");
+            }
+        }
+        Err(e) if e.code == ERR_NO_SERVER => {
+            // Utility apps may only use IVRApplications, which is all registering needs.
+            register(&Apps::init(AppKind::Utility)?, dirs, auto_start)?;
+            tracing::info!(
+                "SteamVR not running; registered, overlay starts with SteamVR (auto-start {auto_start})"
+            );
+        }
+        Err(e) => return Err(e.into()),
+    }
     Ok(())
 }

@@ -58,8 +58,9 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
 2. Windows: unpack the zip anywhere and keep the folder. Linux or Steam Frame (Developer Mode):
    either make the `.AppImage` executable and keep it where it is, or unpack the `.tar.gz` and
    run `./install.sh`.
-3. Start SteamVR, then run `fitvr` once. It registers itself and starts with SteamVR from then
-   on. Turn that off in Settings > Device > Start with SteamVR.
+3. Run `fitvr` once. It registers itself with SteamVR; if SteamVR is running, the watch appears
+   on your wrist right away, and from then on it starts with SteamVR. Turn that off in
+   Settings > Device > Start with SteamVR.
 
 ## Use
 

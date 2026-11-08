@@ -1,5 +1,9 @@
 # AUTO GATE 7: SteamVR smoke test with the null driver, no headset needed.
 #   powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1 -Seconds 1800
+#   powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1 -Register
+# -Register checks the install path instead: with SteamVR running, `fitvr --register` must make
+# SteamVR start the overlay, which then exits cleanly when SteamVR quits. That overlay uses the
+# real data directory, since SteamVR starts it without this script's environment.
 # Backs up steamvr.vrsettings and appconfig.json, enables driver_null, runs the overlay with a
 # fake strap and the watch pinned in view (no controllers) against a throwaway database,
 # samples memory and CPU, then restores everything. If this script is killed (not Ctrl+C'd)
@@ -9,7 +13,8 @@ param(
     # Caches (glyphs, SQLite pages, first panel render) fill early; growth is measured after this.
     [int]$Warmup = 60,
     [string]$Exe = "$PSScriptRoot\..\target\release\fitvr.exe",
-    [string]$Steam = "${env:ProgramFiles(x86)}\Steam"
+    [string]$Steam = "${env:ProgramFiles(x86)}\Steam",
+    [switch]$Register
 )
 $ErrorActionPreference = 'Stop'
 $vrNames = 'vrserver', 'vrmonitor', 'vrcompositor', 'vrdashboard', 'vrwebhelper', 'vrstartup'
@@ -23,6 +28,7 @@ $hadAutolaunch = Test-Path $autolaunch
 $backup = Join-Path $env:TEMP "fitvr-smoke-$PID"
 New-Item -ItemType Directory -Force $backup | Out-Null
 Copy-Item $settings, $appconfig $backup -ErrorAction SilentlyContinue
+if ($hadAutolaunch) { Copy-Item $autolaunch $backup }
 $data = Join-Path $backup 'data'
 $failed = $false
 try {
@@ -33,6 +39,13 @@ try {
         $json.steamvr | Add-Member -Force $kv.Key $kv.Value
     }
     $json | ConvertTo-Json -Depth 32 | Set-Content $settings -Encoding utf8
+    if ($Register) {
+        # Start as a first-time user: SteamVR running, FitnessVR not registered yet.
+        Remove-Item $autolaunch -ErrorAction SilentlyContinue
+        $apps = Get-Content $appconfig -Raw | ConvertFrom-Json
+        $apps.manifest_paths = @($apps.manifest_paths | Where-Object { $_ -notmatch 'fitvr\.vrmanifest$' })
+        [IO.File]::WriteAllText($appconfig, ($apps | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+    }
 
     Start-Process (Join-Path $Steam 'steamapps\common\SteamVR\bin\win64\vrstartup.exe')
     $deadline = (Get-Date).AddSeconds(90)
@@ -42,6 +55,28 @@ try {
     }
     Start-Sleep 15
 
+    if ($Register) {
+        "SteamVR processes: $((Get-Process $vrNames -ErrorAction SilentlyContinue).Name -join ', ')"
+        $reg = Start-Process $Exe -ArgumentList '--register' -Wait -PassThru
+        $realData = Join-Path $env:APPDATA 'FitnessVR\data'
+        Get-Content (Join-Path $realData 'register.log')
+        $deadline = (Get-Date).AddSeconds(30)
+        do {
+            Start-Sleep 2
+            $ov = Get-CimInstance Win32_Process -Filter "Name = 'fitvr.exe'" | Where-Object CommandLine -match '--overlay'
+        } while (-not $ov -and (Get-Date) -lt $deadline)
+        Start-Sleep 20
+        # Closing the SteamVR window from a script does not quit SteamVR, so stop it; the
+        # overlay must notice and exit on its own.
+        Get-Process $vrNames -ErrorAction SilentlyContinue | Stop-Process -Force
+        $deadline = (Get-Date).AddSeconds(30)
+        while ($ov -and (Get-Process -Id $ov.ProcessId -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep 2 }
+        $log = Get-Content (Join-Path $realData 'overlay.log') -ErrorAction SilentlyContinue
+        "register exit  $($reg.ExitCode)"
+        "overlay began  $([bool]$ov)"
+        $log | Select-Object -Last 10
+        $failed = $reg.ExitCode -ne 0 -or -not $ov -or -not ($log -match 'overlay stopped') -or ($log -match ' ERROR ')
+    } else {
     $env:FITVR_DATA_DIR = $data
     $p = Start-Process $Exe -ArgumentList '--overlay', '--fake-hr', '--pin-watch', '--exit-after', $Seconds -PassThru
     Start-Sleep $Warmup
@@ -66,13 +101,15 @@ try {
     "log warnings   $($errors.Count)"
     $log | Select-Object -Last 10
     $failed = $p.ExitCode -ne 0 -or $growMb -ge 10 -or $cpuPct -ge 2 -or $errors.Count -gt 0
+    }
 }
 finally {
     Get-Process $vrNames -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep 3
     Copy-Item (Join-Path $backup 'steamvr.vrsettings') $settings -Force
     if (Test-Path (Join-Path $backup 'appconfig.json')) { Copy-Item (Join-Path $backup 'appconfig.json') $appconfig -Force }
-    if (-not $hadAutolaunch) { Remove-Item $autolaunch -ErrorAction SilentlyContinue }
+    if ($hadAutolaunch) { Copy-Item (Join-Path $backup (Split-Path $autolaunch -Leaf)) $autolaunch -Force }
+    else { Remove-Item $autolaunch -ErrorAction SilentlyContinue }
     "restored SteamVR settings from $backup"
 }
 if ($failed) { "SMOKE FAILED"; exit 1 } else { "SMOKE PASSED" }

@@ -93,6 +93,8 @@ const USED: &[(&str, &[(&str, &str)])] = &[
                 "(key: *const c_char, auto_launch: bool) -> u32",
             ),
             ("GetCurrentSceneProcessId", "() -> u32"),
+            ("LaunchApplication", "(key: *const c_char) -> u32"),
+            ("GetApplicationProcessId", "(key: *const c_char) -> u32"),
         ],
     ),
     (

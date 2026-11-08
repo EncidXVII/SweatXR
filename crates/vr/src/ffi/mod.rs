@@ -110,15 +110,22 @@ pub const ROLE_RIGHT: u32 = 2;
 pub const EVENT_SCENE_CHANGED: u32 = 404;
 pub const EVENT_QUIT: u32 = 700;
 const APP_OVERLAY: u32 = 2;
+const APP_BACKGROUND: u32 = 3;
 const APP_UTILITY: u32 = 4;
 const PROP_NAME: u32 = 0;
 const ERR_APP_KEY_EXISTS: u32 = 100;
+const ERR_APP_ALREADY_RUNNING: u32 = 106;
+const ERR_APP_ALREADY_STARTING: u32 = 110;
+/// VR_Init code for a background app when SteamVR is not running.
+pub const ERR_NO_SERVER: u32 = 121;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AppKind {
     /// Long-running watch and panel.
     Overlay,
-    /// One-shot calls such as registering the manifest.
+    /// Connects only if SteamVR is already running; never starts it.
+    Background,
+    /// Works without SteamVR running; only IVRApplications is available.
     Utility,
 }
 
@@ -262,14 +269,167 @@ fn load() -> Result<*mut c_void, VrError> {
         })
 }
 
-/// A live OpenVR connection. Shuts down on drop.
+/// A live OpenVR connection with the full set of interfaces. Shuts down on drop (via `apps`).
 pub struct Vr {
     sys: &'static IVRSystemFn,
     overlay: &'static IVROverlayFn,
-    apps: &'static IVRApplicationsFn,
     input: &'static IVRInputFn,
     interface: InterfaceFn,
+    apps: Apps,
+}
+
+/// An OpenVR connection that only manages applications: registering, auto-start, launching.
+/// Utility apps may not ask for anything else. Shuts down on drop.
+pub struct Apps {
+    t: &'static IVRApplicationsFn,
     shutdown: ShutdownFn,
+}
+
+/// Loads the runtime and calls VR_Init. On success the caller owns one VR_Shutdown.
+fn connect(kind: AppKind) -> Result<(InterfaceFn, ShutdownFn), VrError> {
+    let lib = load()?;
+    let sym = |name: &CStr| -> Result<*mut c_void, VrError> {
+        let p = os::sym(lib, name);
+        if p.is_null() {
+            Err(VrError {
+                call: "resolve symbol",
+                code: 0,
+                detail: format!("{name:?}"),
+            })
+        } else {
+            Ok(p)
+        }
+    };
+    // SAFETY: the symbols come from openvr_api and have these exact C signatures
+    // (openvr_capi.h); a data pointer and a function pointer have the same size here.
+    let (init, shutdown, interface, error_text) = unsafe {
+        (
+            std::mem::transmute::<*mut c_void, InitFn>(sym(c"VR_InitInternal2")?),
+            std::mem::transmute::<*mut c_void, ShutdownFn>(sym(c"VR_ShutdownInternal")?),
+            std::mem::transmute::<*mut c_void, InterfaceFn>(sym(c"VR_GetGenericInterface")?),
+            std::mem::transmute::<*mut c_void, ErrorTextFn>(sym(c"VR_GetVRInitErrorAsEnglishDescription")?),
+        )
+    };
+    let mut code = 0u32;
+    let app_type = match kind {
+        AppKind::Overlay => APP_OVERLAY,
+        AppKind::Background => APP_BACKGROUND,
+        AppKind::Utility => APP_UTILITY,
+    };
+    // SAFETY: `code` is a valid out pointer; a null startup info is allowed.
+    unsafe { init(&mut code, app_type, std::ptr::null()) };
+    if code != 0 {
+        // SAFETY: returns a static NUL-terminated string for any code.
+        let text = unsafe { CStr::from_ptr(error_text(code)) }
+            .to_string_lossy()
+            .into_owned();
+        return Err(VrError {
+            call: "VR_Init",
+            code,
+            detail: text,
+        });
+    }
+    Ok((interface, shutdown))
+}
+
+impl Apps {
+    pub fn init(kind: AppKind) -> Result<Self, VrError> {
+        let (interface, shutdown) = connect(kind)?;
+        Self::from(interface, shutdown)
+    }
+
+    /// Takes ownership of the connection: shuts it down if the table is missing.
+    fn from(interface: InterfaceFn, shutdown: ShutdownFn) -> Result<Self, VrError> {
+        match fn_table(interface, tables::IVRAPPLICATIONS) {
+            // SAFETY: the table stays valid until VR_ShutdownInternal, which only Drop calls.
+            Ok(t) => Ok(Self {
+                t: unsafe { &*t.cast() },
+                shutdown,
+            }),
+            Err(e) => {
+                // SAFETY: init succeeded, so shutdown is valid and balances it.
+                unsafe { shutdown() };
+                Err(e)
+            }
+        }
+    }
+
+    /// (app key, display name) of the running game, if any.
+    pub fn scene_app(&self) -> Option<(String, String)> {
+        // SAFETY: plain value call.
+        let pid = unsafe { (self.t.GetCurrentSceneProcessId)() };
+        if pid == 0 {
+            return None;
+        }
+        let mut key = [0 as c_char; 128];
+        // SAFETY: buffer of the advertised length; OpenVR NUL-terminates.
+        let code = unsafe { (self.t.GetApplicationKeyByProcessId)(pid, key.as_mut_ptr(), key.len() as u32) };
+        if code != 0 {
+            return None;
+        }
+        let mut name = [0 as c_char; 256];
+        let mut perr = 0u32;
+        // SAFETY: as above; `key` came back NUL-terminated.
+        unsafe {
+            (self.t.GetApplicationPropertyString)(
+                key.as_ptr(),
+                PROP_NAME,
+                name.as_mut_ptr(),
+                name.len() as u32,
+                &mut perr,
+            )
+        };
+        // SAFETY: both buffers are NUL-terminated by OpenVR (zero-initialised otherwise).
+        let (key, name) = unsafe { (CStr::from_ptr(key.as_ptr()), CStr::from_ptr(name.as_ptr())) };
+        let key = key.to_string_lossy().into_owned();
+        let name = if perr == 0 && !name.is_empty() {
+            name.to_string_lossy().into_owned()
+        } else {
+            key.clone()
+        };
+        Some((key, name))
+    }
+
+    pub fn add_manifest(&self, path: &Path) -> Result<(), VrError> {
+        let p = cstr("AddApplicationManifest", &path.to_string_lossy())?;
+        // SAFETY: valid C string.
+        match unsafe { (self.t.AddApplicationManifest)(p.as_ptr(), false) } {
+            0 | ERR_APP_KEY_EXISTS => Ok(()),
+            code => Err(err("AddApplicationManifest", code)),
+        }
+    }
+
+    pub fn set_auto_launch(&self, key: &str, on: bool) -> Result<(), VrError> {
+        let k = cstr("SetApplicationAutoLaunch", key)?;
+        // SAFETY: valid C string.
+        check("SetApplicationAutoLaunch", unsafe {
+            (self.t.SetApplicationAutoLaunch)(k.as_ptr(), on)
+        })
+    }
+
+    /// Whether SteamVR reports a process for this app key.
+    pub fn running(&self, key: &str) -> bool {
+        // SAFETY: valid C string; plain value call.
+        cstr("GetApplicationProcessId", key)
+            .is_ok_and(|k| unsafe { (self.t.GetApplicationProcessId)(k.as_ptr()) } != 0)
+    }
+
+    /// Asks SteamVR to start a registered app now.
+    pub fn launch(&self, key: &str) -> Result<(), VrError> {
+        let k = cstr("LaunchApplication", key)?;
+        // SAFETY: valid C string.
+        match unsafe { (self.t.LaunchApplication)(k.as_ptr()) } {
+            0 | ERR_APP_ALREADY_RUNNING | ERR_APP_ALREADY_STARTING => Ok(()),
+            code => Err(err("LaunchApplication", code)),
+        }
+    }
+}
+
+impl Drop for Apps {
+    fn drop(&mut self) {
+        // SAFETY: balances the successful VR_InitInternal2 in `connect`; tables are not used after.
+        unsafe { (self.shutdown)() };
+    }
 }
 
 fn fn_table(interface: InterfaceFn, name: &'static str) -> Result<*const c_void, VrError> {
@@ -334,80 +494,33 @@ impl Vr {
         })
     }
 
+    /// Full connection for the overlay (`AppKind::Overlay` or `Background`).
     pub fn init(kind: AppKind) -> Result<Self, VrError> {
-        let lib = load()?;
-        let sym = |name: &CStr| -> Result<*mut c_void, VrError> {
-            let p = os::sym(lib, name);
-            if p.is_null() {
-                Err(VrError {
-                    call: "resolve symbol",
-                    code: 0,
-                    detail: format!("{name:?}"),
-                })
-            } else {
-                Ok(p)
-            }
-        };
-        // SAFETY: the symbols come from openvr_api and have these exact C signatures
-        // (openvr_capi.h); a data pointer and a function pointer have the same size here.
-        let (init, shutdown, interface, error_text) = unsafe {
-            (
-                std::mem::transmute::<*mut c_void, InitFn>(sym(c"VR_InitInternal2")?),
-                std::mem::transmute::<*mut c_void, ShutdownFn>(sym(c"VR_ShutdownInternal")?),
-                std::mem::transmute::<*mut c_void, InterfaceFn>(sym(c"VR_GetGenericInterface")?),
-                std::mem::transmute::<*mut c_void, ErrorTextFn>(sym(
-                    c"VR_GetVRInitErrorAsEnglishDescription",
-                )?),
-            )
-        };
-        let mut code = 0u32;
-        let app_type = if kind == AppKind::Overlay {
-            APP_OVERLAY
-        } else {
-            APP_UTILITY
-        };
-        // SAFETY: `code` is a valid out pointer; a null startup info is allowed.
-        unsafe { init(&mut code, app_type, std::ptr::null()) };
-        if code != 0 {
-            // SAFETY: returns a static NUL-terminated string for any code.
-            let text = unsafe { CStr::from_ptr(error_text(code)) }
-                .to_string_lossy()
-                .into_owned();
-            return Err(VrError {
-                call: "VR_Init",
-                code,
-                detail: text,
-            });
-        }
+        let (interface, shutdown) = connect(kind)?;
+        // From here `apps` owns the connection: an early return shuts it down.
+        let apps = Apps::from(interface, shutdown)?;
         let table = |name: &'static str| fn_table(interface, name);
-        let tables = (|| {
-            Ok((
-                table(tables::IVRSYSTEM)?,
-                table(tables::IVROVERLAY)?,
-                table(tables::IVRAPPLICATIONS)?,
-                table(tables::IVRINPUT)?,
-            ))
-        })();
-        let (sys, overlay, apps, input) = match tables {
-            Ok(t) => t,
-            Err(e) => {
-                // SAFETY: init succeeded, so shutdown is valid and balances it.
-                unsafe { shutdown() };
-                return Err(e);
-            }
-        };
-        // SAFETY: function tables stay valid until VR_ShutdownInternal, which only Drop calls,
-        // and their layout is generated from the same header version we request.
+        let (sys, overlay, input) = (
+            table(tables::IVRSYSTEM)?,
+            table(tables::IVROVERLAY)?,
+            table(tables::IVRINPUT)?,
+        );
+        // SAFETY: function tables stay valid until VR_ShutdownInternal, which only Apps' Drop
+        // calls, and their layout is generated from the same header version we request.
         unsafe {
             Ok(Self {
                 sys: &*sys.cast(),
                 overlay: &*overlay.cast(),
-                apps: &*apps.cast(),
                 input: &*input.cast(),
                 interface,
-                shutdown,
+                apps,
             })
         }
+    }
+
+    /// The application half of this connection (registering, scene app, launching).
+    pub fn apps(&self) -> &Apps {
+        &self.apps
     }
 
     pub fn poses(&self) -> Box<[TrackedDevicePose; MAX_DEVICES]> {
@@ -515,60 +628,6 @@ impl Vr {
             .then_some((res.uv, res.point))
     }
 
-    /// (app key, display name) of the running game, if any.
-    pub fn scene_app(&self) -> Option<(String, String)> {
-        // SAFETY: plain value call.
-        let pid = unsafe { (self.apps.GetCurrentSceneProcessId)() };
-        if pid == 0 {
-            return None;
-        }
-        let mut key = [0 as c_char; 128];
-        // SAFETY: buffer of the advertised length; OpenVR NUL-terminates.
-        let code =
-            unsafe { (self.apps.GetApplicationKeyByProcessId)(pid, key.as_mut_ptr(), key.len() as u32) };
-        if code != 0 {
-            return None;
-        }
-        let mut name = [0 as c_char; 256];
-        let mut perr = 0u32;
-        // SAFETY: as above; `key` came back NUL-terminated.
-        unsafe {
-            (self.apps.GetApplicationPropertyString)(
-                key.as_ptr(),
-                PROP_NAME,
-                name.as_mut_ptr(),
-                name.len() as u32,
-                &mut perr,
-            )
-        };
-        // SAFETY: both buffers are NUL-terminated by OpenVR (zero-initialised otherwise).
-        let (key, name) = unsafe { (CStr::from_ptr(key.as_ptr()), CStr::from_ptr(name.as_ptr())) };
-        let key = key.to_string_lossy().into_owned();
-        let name = if perr == 0 && !name.is_empty() {
-            name.to_string_lossy().into_owned()
-        } else {
-            key.clone()
-        };
-        Some((key, name))
-    }
-
-    pub fn add_manifest(&self, path: &Path) -> Result<(), VrError> {
-        let p = cstr("AddApplicationManifest", &path.to_string_lossy())?;
-        // SAFETY: valid C string.
-        match unsafe { (self.apps.AddApplicationManifest)(p.as_ptr(), false) } {
-            0 | ERR_APP_KEY_EXISTS => Ok(()),
-            code => Err(err("AddApplicationManifest", code)),
-        }
-    }
-
-    pub fn set_auto_launch(&self, key: &str, on: bool) -> Result<(), VrError> {
-        let k = cstr("SetApplicationAutoLaunch", key)?;
-        // SAFETY: valid C string.
-        check("SetApplicationAutoLaunch", unsafe {
-            (self.apps.SetApplicationAutoLaunch)(k.as_ptr(), on)
-        })
-    }
-
     pub fn set_action_manifest(&self, path: &Path) -> Result<(), VrError> {
         let p = cstr("SetActionManifestPath", &path.to_string_lossy())?;
         // SAFETY: valid C string.
@@ -627,11 +686,4 @@ pub enum Handle {
     ActionSet,
     Action,
     Source,
-}
-
-impl Drop for Vr {
-    fn drop(&mut self) {
-        // SAFETY: balances the successful VR_InitInternal2 in `init`; tables are not used after.
-        unsafe { (self.shutdown)() };
-    }
 }
