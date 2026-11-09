@@ -1,109 +1,114 @@
 {
-  "name": "Night Lime (warm)",
+  "name": "Night Lime (graphite), DesktopVR B+",
   "color": {
-    "bg": "#0C0B0A",
-    "surface": "#15130F",
-    "raised": "#1F1C18",
-    "line": "#2A2622",
-    "ink": "#F4F1EC",
-    "ink2": "#AAA49B",
-    "ink3": "#8A847B",
-    "edge": "#645E56",
+    "bg": "#0B0B0C",
+    "surface": "#141416",
+    "raised": "#1D1D20",
+    "line": "#2A2A2E",
+    "pressed": "#36363B",
+    "dim": "#4A4A50",
+    "ink": "#F5F5F7",
+    "ink2": "#A8A8AF",
+    "ink3": "#88888F",
+    "edge": "#64646B",
     "accent": "#C6FF1A",
-    "on_accent": "#0C0B0A",
-    "danger": "#FF5A3C"
+    "accent_pressed": "#A9DB12",
+    "on_accent": "#0B0B0C",
+    "danger": "#FF5A3C",
+    "danger_bg": "#2B1712",
+    "danger_ink": "#FF8A6E"
   },
   "font": {
     "display": "Anton",
-    "body": "Ubuntu"
+    "body": "Barlow"
   },
   "type": {
-    "display": 96,
-    "title": 48,
-    "heading": 32,
-    "body": 28,
+    "display": 72,
+    "title": 34,
+    "heading": 44,
+    "stat": 26,
+    "body": 26,
     "small": 24,
-    "watch_big": 112,
-    "watch_small": 40
+    "label": 24,
+    "brand": 24,
+    "watch_big": 64,
+    "watch_huge": 96
   },
   "space": {
     "1": 4,
     "2": 8,
     "3": 12,
     "4": 16,
-    "5": 24,
-    "6": 32,
-    "7": 48
+    "5": 20,
+    "6": 24,
+    "7": 32,
+    "8": 48
   },
   "radius": {
-    "none": 0
+    "card": 28,
+    "panel": 24,
+    "group": 16,
+    "control": 12,
+    "small": 10
   },
   "motion": {
-    "fast_ms": 120,
-    "slow_ms": 240
+    "fast_ms": 160,
+    "fade_ms": 200,
+    "slow_ms": 280,
+    "fill_ms": 600
   },
   "size": {
     "control": 64,
+    "row": 62,
+    "step": 48,
+    "segment": 44,
     "target_min": 48
   },
   "checks": {
     "min_text_px": 24,
     "text_pairs": [
-      [
-        "ink",
-        "bg"
-      ],
-      [
-        "ink2",
-        "bg"
-      ],
-      [
-        "ink3",
-        "bg"
-      ],
-      [
-        "ink",
-        "surface"
-      ],
-      [
-        "ink2",
-        "surface"
-      ],
-      [
-        "ink",
-        "raised"
-      ],
-      [
-        "on_accent",
-        "accent"
-      ],
-      [
-        "accent",
-        "bg"
-      ]
+      ["ink", "bg"],
+      ["ink2", "bg"],
+      ["ink3", "bg"],
+      ["ink", "surface"],
+      ["ink2", "surface"],
+      ["ink", "raised"],
+      ["ink2", "raised"],
+      ["ink3", "raised"],
+      ["ink", "pressed"],
+      ["on_accent", "accent"],
+      ["on_accent", "accent_pressed"],
+      ["on_accent", "ink"],
+      ["accent", "bg"],
+      ["danger_ink", "danger_bg"],
+      ["danger", "raised"]
     ],
     "ui_pairs": [
-      [
-        "edge",
-        "bg"
-      ],
-      [
-        "accent",
-        "surface"
-      ]
+      ["edge", "bg"],
+      ["accent", "surface"],
+      ["accent", "raised"]
     ],
     "min_desktop_text_px": 14
   },
   "desktop": {
     "type": {
-      "display": 64,
-      "title": 40,
-      "heading": 24,
-      "body": 17,
-      "small": 15
+      "display": 80,
+      "title": 36,
+      "heading": 32,
+      "stat": 24,
+      "body": 16,
+      "small": 14,
+      "label": 15,
+      "brand": 24
+    },
+    "radius": {
+      "small": 9
     },
     "size": {
-      "control": 44
+      "control": 44,
+      "row": 56,
+      "step": 36,
+      "segment": 36
     }
   }
 }

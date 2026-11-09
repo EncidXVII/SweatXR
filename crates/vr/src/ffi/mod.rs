@@ -91,6 +91,15 @@ pub struct DigitalActionData {
     pub update_time: f32,
 }
 
+/// `InputPoseActionData_t`.
+#[repr(C)]
+#[derive(Default)]
+pub struct PoseActionData {
+    pub active: bool,
+    pub active_origin: u64,
+    pub pose: TrackedDevicePose,
+}
+
 #[repr(C)]
 #[derive(Default)]
 pub struct ActiveActionSet {
@@ -671,6 +680,23 @@ impl Vr {
             (self.input.GetDigitalActionData)(action, &mut d, size_of::<DigitalActionData>() as u32, source)
         };
         (code == 0 && d.active).then_some((d.state, d.changed))
+    }
+
+    /// Pose action on one hand (standing space), at the same moment as `poses()`.
+    pub fn pose(&self, action: u64, source: u64) -> Option<HmdMatrix34> {
+        let mut d = PoseActionData::default();
+        // SAFETY: struct of the advertised size.
+        let code = unsafe {
+            (self.input.GetPoseActionDataRelativeToNow)(
+                action,
+                STANDING,
+                0.0,
+                &mut d,
+                size_of::<PoseActionData>() as u32,
+                source,
+            )
+        };
+        (code == 0 && d.active && d.pose.pose_is_valid).then_some(d.pose.device_to_absolute)
     }
 
     pub fn haptic(&self, action: u64, source: u64, seconds: f32, amplitude: f32) {

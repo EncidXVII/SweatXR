@@ -98,12 +98,13 @@ fn every_view_matches_its_snapshot() {
     ];
     let live = Live {
         tracking: true,
+        game: "Shadow Boxing Club",
         hr: Some(142),
         hr_status: Status::Connected,
         devices: &devices,
     };
 
-    let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    let mut watch = Surface::new(WatchView::new, 560, 324).expect("watch");
     watch.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &watch.ui.global::<AppState>(),
@@ -115,8 +116,13 @@ fn every_view_matches_its_snapshot() {
     )
     .expect("refresh");
     check("watch", &mut watch);
+    // Pointed at with the other hand: the card grows a line saying what the trigger does.
+    watch.ui.global::<AppState>().set_cursor_visible(true);
+    watch.ui.global::<AppState>().set_cursor_x(-100.0);
+    check("watch_pointed", &mut watch);
+    watch.ui.global::<AppState>().set_cursor_visible(false);
 
-    let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    let mut panel = Surface::new(PanelView::new, 800, 600).expect("panel");
     panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
@@ -127,7 +133,13 @@ fn every_view_matches_its_snapshot() {
         &live,
     )
     .expect("refresh");
-    for (tab, name) in [(0, "panel_today"), (1, "panel_week"), (2, "panel_settings")] {
+    for (tab, name) in [
+        (0, "panel_today"),
+        (1, "panel_week"),
+        (2, "panel_you"),
+        (3, "panel_strap"),
+        (4, "panel_setup"),
+    ] {
         panel.ui.set_tab(tab);
         check(name, &mut panel);
     }
@@ -156,7 +168,11 @@ fn every_view_matches_its_snapshot() {
         desk.ui.set_tab(1);
         check(name, &mut desk);
     }
-    for (tab, name) in [(0, "desktop_today"), (2, "desktop_export")] {
+    for (tab, name) in [
+        (0, "desktop_today"),
+        (2, "desktop_export"),
+        (3, "desktop_settings"),
+    ] {
         desk.ui.set_tab(tab);
         check(name, &mut desk);
     }
@@ -180,10 +196,24 @@ fn every_view_matches_its_snapshot() {
     check("watch_goal_celebration", &mut watch);
     watch.ui.global::<AppState>().set_celebrate(false);
 
+    // The strap stops sending mid-session.
+    let lost = Live { hr: None, ..live };
+    refresh(
+        &watch.ui.global::<AppState>(),
+        &store,
+        &p,
+        NOW,
+        &Nav::default(),
+        &lost,
+    )
+    .expect("refresh");
+    check("watch_strap_lost", &mut watch);
+
     // Empty state, no strap.
     let empty = Store::in_memory(|_| 0).expect("db");
     let none = Live {
         tracking: false,
+        game: "",
         hr: None,
         hr_status: Status::Off,
         devices: &[],
@@ -208,13 +238,14 @@ fn render_cost() {
     let (store, p) = store();
     let live = Live {
         tracking: false,
+        game: "",
         hr: Some(120),
         hr_status: Status::Connected,
         devices: &[],
     };
-    let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    let mut watch = Surface::new(WatchView::new, 560, 324).expect("watch");
     watch.ui.global::<Mode>().set_reduce_motion(true);
-    let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    let mut panel = Surface::new(PanelView::new, 800, 600).expect("panel");
     panel.ui.global::<Mode>().set_reduce_motion(true);
     // A macro, not a closure: the surface is borrowed both for its global and for rendering.
     macro_rules! bench {

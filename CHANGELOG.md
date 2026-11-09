@@ -6,6 +6,29 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Changed
+- New look in line with DesktopVR: neutral graphite greys, soft rounded surfaces, Anton headings over
+  Barlow (bundled, with a semibold weight for chosen tabs and filled buttons).
+  The watch is the DesktopVR card (14 cm, 560 px): ring with today's kcal, a pill naming the game
+  being counted, active minutes and heart rate. A hint or warning shows as one line under it.
+- The VR panel is DesktopVR's 800 x 600 rail menu (50 cm at arm's length): Today, Week, You,
+  Strap, Setup. Settings are split across the rail so no page needs sub-tabs. First run has a
+  second step that teaches opening the panel from the watch.
+- The desktop app has a left nav; Today adds this week's chart, History shows burned, active and
+  best day over the chart, Settings is one page in two columns with Open folder.
+- Motion: presses answer on trigger-down, hovers ease, segment choices and switches slide, the
+  watch card grows down for a hint and back, the ring and bars fill to new values, the goal card
+  fades in, the panel fades in when opened. All of it follows Windows' "Animation effects".
+
+### Fixed
+- The watch sat at a different angle on each controller model and read sideways when you raised
+  your wrist. It now uses the controller's tip pose, like DesktopVR: text runs along the forearm,
+  top away from you, on either hand. The laser starts from the tip too.
+- Glancing at the watch now fades it in smoothly with the turn of the wrist and the look of the
+  eyes (DesktopVR's rule), instead of jumping after a delay. It dims to 35 % when you look away.
+- Pointing just below a short watch card no longer counts as pointing at the watch.
+- The strap dropping mid-session now says so on the watch; estimates continue from movement.
+
 ## [1.0.0]
 
 First release.

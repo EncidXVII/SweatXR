@@ -12,6 +12,7 @@ export struct Bar {
     text: string,
     value: float,
     met: bool,
+    today: bool,
 }
 
 export struct SessionRow {
@@ -60,18 +61,39 @@ export global AppState {
     in property <string> hr-zone;
     in property <bool> hr-live;
     in property <bool> hr-shown;
+    // A strap is chosen but gives no reading during a session: estimates fall back to movement.
+    in property <bool> hr-lost;
     in property <bool> tracking;
+    // The game being counted (the watch pill), empty when nothing is.
+    in property <string> game-name;
     in property <bool> celebrate;
+    in property <string> celebrate-text;
     in property <bool> panel-seen: true;
     in property <[GameRow]> games;
     in property <string> empty-text: "Play anything in SteamVR and it shows up here.";
+    in property <string> date-text;
+    in property <string> date-long;
+    in property <string> streak-text;
+
+    // This week, for the desktop Today page.
+    in property <[Bar]> week-bars;
+    in property <string> week-kcal;
+    in property <string> week-active;
+    in property <string> week-goal-days;
 
     // History
     in property <[Bar]> bars;
     in property <string> history-label;
+    // The same, upper case, for the VR page heading.
+    in property <string> history-title;
     in property <bool> history-has-next;
     in property <string> history-total;
-    in property <string> streak-text;
+    in property <string> history-kcal;
+    in property <string> history-active;
+    in property <string> history-best;
+    in property <string> history-best-label;
+    in property <string> history-start;
+    in property <string> history-end;
     in property <[GameRow]> history-games;
     in-out property <int> history-range: 1;
 
@@ -81,6 +103,7 @@ export global AppState {
     in property <bool> sessions-has-next;
     in property <string> sessions-more;
     in property <string> export-status;
+    in property <bool> export-failed;
 
     // Settings
     in-out property <ProfileData> profile;
@@ -88,9 +111,13 @@ export global AppState {
     in property <bool> hr-scanning;
     in property <[HrDevice]> hr-devices;
     in property <string> calibration-text;
+    in property <string> calibration-title;
+    // 0..1 toward personal calibration; 1 once calibrated.
+    in property <float> calibration-progress;
     in property <string> data-path;
     in property <string> data-status;
     in property <bool> first-run;
+    in property <string> version;
 
     // VR pointer
     in property <bool> cursor-visible;
@@ -108,5 +135,6 @@ export global AppState {
     callback export-day();
     callback export-csv();
     callback delete-history();
+    callback open-data-folder();
     callback close-panel();
 }

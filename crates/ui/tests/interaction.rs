@@ -114,11 +114,12 @@ fn every_panel_control_reaches_its_callback() {
     }];
     let live = Live {
         tracking: false,
+        game: "",
         hr: None,
         hr_status: Status::Off,
         devices: &devices,
     };
-    let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    let mut panel = Surface::new(PanelView::new, 800, 600).expect("panel");
     panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
@@ -132,68 +133,79 @@ fn every_panel_control_reaches_its_callback() {
     let log = record(&panel);
     panel.render();
 
-    // Tabs (y = 80): TODAY, WEEK, SETTINGS.
-    click(&mut panel, 207.0, 80.0);
-    assert_eq!(panel.ui.get_tab(), 1, "WEEK tab");
-    click(&mut panel, 340.0, 80.0);
-    assert_eq!(panel.ui.get_tab(), 2, "SETTINGS tab");
+    // Rail tabs (x = 60): Today, Week, You, Strap, Setup.
+    click(&mut panel, 60.0, TAB_Y[1]);
+    assert_eq!(panel.ui.get_tab(), 1, "Week tab");
+    click(&mut panel, 60.0, TAB_Y[2]);
+    assert_eq!(panel.ui.get_tab(), 2, "You tab");
     assert!(
         has(&log, &Got::Hover) && has(&log, &Got::Press),
         "haptic feedback hooks"
     );
 
-    // BODY: weight +, sex FEMALE, resting heart rate -.
-    click(&mut panel, 1119.0, 264.0);
+    // You: weight +, sex Female, resting heart rate -.
+    click(&mut panel, PLUS_X, row_y(0));
     assert!(has(&log, &Got::Weight(71.0)), "weight +: {:?}", log.borrow());
-    click(&mut panel, 1059.0, 492.0);
+    click(&mut panel, SEG_X[1], row_y(3));
     assert!(has(&log, &Got::Female(true)), "sex");
-    click(&mut panel, 839.0, 568.0);
+    click(&mut panel, MINUS_X, row_y(4));
     assert!(has(&log, &Got::Resting(59)), "resting heart rate -");
 
-    // WATCH: goal -, units IMPERIAL.
-    click(&mut panel, 225.0, 176.0);
-    click(&mut panel, 839.0, 264.0);
+    // Setup: goal -, units Imperial.
+    click(&mut panel, 60.0, TAB_Y[4]);
+    click(&mut panel, MINUS_X, row_y(0));
     assert!(has(&log, &Got::Goal(275)), "goal -");
-    click(&mut panel, 1059.0, 416.0);
+    click(&mut panel, SEG_X[1], row_y(2));
     assert!(has(&log, &Got::Imperial(true)), "units: {:?}", log.borrow());
 
-    // STRAP: scan, pick the strap.
-    click(&mut panel, 350.0, 176.0);
-    insta::assert_binary_snapshot!("panel_settings_strap.png", png(&mut panel));
-    click(&mut panel, 1100.0, 264.0);
+    // Strap: scan, pick the strap.
+    click(&mut panel, 60.0, TAB_Y[3]);
+    insta::assert_binary_snapshot!("panel_strap.png", png(&mut panel));
+    click(&mut panel, SCAN.0, SCAN.1);
     assert!(has(&log, &Got::Scan), "scan: {:?}", log.borrow());
-    click(&mut panel, 600.0, 340.0);
+    click(&mut panel, 400.0, 179.0);
     assert!(
         has(&log, &Got::Pick("strap-1".into())),
         "pick: {:?}",
         log.borrow()
     );
 
-    // DATA: delete takes two clicks.
-    panel
-        .ui
-        .global::<AppState>()
-        .set_data_path("/home/player/.local/share/fitnessvr/fitvr.db".into());
-    click(&mut panel, 464.0, 176.0);
-    insta::assert_binary_snapshot!("panel_settings_data.png", png(&mut panel));
-    click(&mut panel, 200.0, DELETE_Y);
+    // Setup, your data: delete takes two clicks.
+    click(&mut panel, 60.0, TAB_Y[4]);
+    insta::assert_binary_snapshot!("panel_setup.png", png(&mut panel));
+    click(&mut panel, DELETE.0, DELETE.1);
     assert!(!has(&log, &Got::Delete), "first click only arms");
-    insta::assert_binary_snapshot!("panel_settings_data_confirm.png", png(&mut panel));
-    click(&mut panel, 200.0, DELETE_Y);
+    insta::assert_binary_snapshot!("panel_setup_delete_armed.png", png(&mut panel));
+    click(&mut panel, DELETE.0, DELETE.1);
     assert!(has(&log, &Got::Delete), "second click deletes");
 
-    click(&mut panel, 1092.0, 80.0);
+    click(&mut panel, 60.0, CLOSE_Y);
     assert!(has(&log, &Got::Close), "close");
 
+    // First run: Next, then Got it on the second step.
     panel.ui.global::<AppState>().set_first_run(true);
     insta::assert_binary_snapshot!("panel_first_run.png", png(&mut panel));
-    click(&mut panel, START.0, START.1);
-    assert!(has(&log, &Got::FirstRunDone), "first run START");
+    click(&mut panel, NEXT.0, NEXT.1);
+    assert!(!has(&log, &Got::FirstRunDone), "Next only moves to step 2");
+    insta::assert_binary_snapshot!("panel_first_run_step2.png", png(&mut panel));
+    click(&mut panel, NEXT.0, NEXT.1);
+    assert!(has(&log, &Got::FirstRunDone), "first run Got it");
 }
 
-/// Delete button and first-run START centres on the 1200x800 panel.
-const DELETE_Y: f32 = 380.0;
-const START: (f32, f32) = (1089.0, 600.0);
+/// Centres on the 800x600 panel: rail tabs, rows of a page's first group, the stepper and the
+/// segment cells at the right end of a row, and single buttons.
+const TAB_Y: [f32; 5] = [56.0, 148.0, 240.0, 332.0, 424.0];
+const CLOSE_Y: f32 = 556.0;
+const MINUS_X: f32 = 576.0;
+const PLUS_X: f32 = 736.0;
+const SEG_X: [f32; 2] = [582.0, 698.0];
+const SCAN: (f32, f32) = (735.0, 110.0);
+const DELETE: (f32, f32) = (700.0, 424.0);
+const NEXT: (f32, f32) = (720.0, 540.0);
+
+fn row_y(i: usize) -> f32 {
+    115.0 + 62.0 * i as f32
+}
 
 #[test]
 fn edge_cases_render() {
@@ -213,12 +225,13 @@ fn edge_cases_render() {
     );
     let live = Live {
         tracking: false,
+        game: "",
         hr: Some(178),
         hr_status: Status::Connected,
         devices: &[],
     };
 
-    let mut watch = Surface::new(WatchView::new, 512, 320).expect("watch");
+    let mut watch = Surface::new(WatchView::new, 560, 324).expect("watch");
     watch.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &watch.ui.global::<AppState>(),
@@ -231,7 +244,7 @@ fn edge_cases_render() {
     .expect("refresh");
     insta::assert_binary_snapshot!("watch_big_numbers.png", png(&mut watch));
 
-    let mut panel = Surface::new(PanelView::new, 1200, 800).expect("panel");
+    let mut panel = Surface::new(PanelView::new, 800, 600).expect("panel");
     panel.ui.global::<Mode>().set_reduce_motion(true);
     refresh(
         &panel.ui.global::<AppState>(),
@@ -244,7 +257,7 @@ fn edge_cases_render() {
     .expect("refresh");
     insta::assert_binary_snapshot!("panel_today_long_name.png", png(&mut panel));
     panel.ui.set_tab(2);
-    insta::assert_binary_snapshot!("panel_settings_imperial.png", png(&mut panel));
+    insta::assert_binary_snapshot!("panel_you_imperial.png", png(&mut panel));
 
     // Scanning with several straps found.
     let devices: Vec<Device> = (1..=4)
@@ -255,6 +268,7 @@ fn edge_cases_render() {
         .collect();
     let scanning = Live {
         tracking: false,
+        game: "",
         hr: None,
         hr_status: Status::Scanning,
         devices: &devices,
@@ -268,8 +282,8 @@ fn edge_cases_render() {
         &scanning,
     )
     .expect("refresh");
-    click(&mut panel, 251.0, 176.0);
-    insta::assert_binary_snapshot!("panel_settings_scanning.png", png(&mut panel));
+    panel.ui.set_tab(3);
+    insta::assert_binary_snapshot!("panel_strap_scanning.png", png(&mut panel));
 }
 
 #[test]
@@ -288,6 +302,7 @@ fn desktop_states_render_at_minimum_size() {
     }];
     let live = Live {
         tracking: false,
+        game: "",
         hr: None,
         hr_status: Status::Connecting,
         devices: &devices,
@@ -314,10 +329,8 @@ fn desktop_states_render_at_minimum_size() {
     );
     insta::assert_binary_snapshot!("desktop_min_export_saved.png", png(&mut desk));
     desk.ui.set_tab(3);
-    desk.render();
-    click(&mut desk, 251.0, 176.0);
     insta::assert_binary_snapshot!("desktop_min_settings_device.png", png(&mut desk));
-    // Hover state: pointer resting on the SCAN button.
-    desk.pointer(930.0, 492.0, Pointer::Move);
+    // Hover state: pointer resting on the History nav item.
+    desk.pointer(100.0, 154.0, Pointer::Move);
     insta::assert_binary_snapshot!("desktop_min_hover.png", png(&mut desk));
 }

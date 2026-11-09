@@ -9,6 +9,7 @@
 
 mod app;
 mod desktop;
+mod motion;
 mod overlay;
 mod setup;
 #[cfg(windows)]

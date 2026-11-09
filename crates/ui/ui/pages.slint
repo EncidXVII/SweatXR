@@ -1,9 +1,9 @@
-import { Tokens } from "@tokens";
+import { Tokens, Mode } from "@tokens";
 import { AppState, HrDevice, SessionRow } from "state.slint";
-import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Hit, Ring, Segmented, Stat, Stepper, StepRow, Title } from "kit.slint";
+import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Group, Hit, Icon, IconButton, Icons, Meter, Motion, Ring, Row, Segmented, Steps, StepRow, SwitchRow, Title } from "kit.slint";
 
-// Profile rows shared by first run and settings. Rust clamps and saves on every change.
-component WeightRow inherits StepRow {
+// Profile rows shared by first run, the VR panel and the desktop. Rust clamps and saves on every change.
+export component WeightRow inherits StepRow {
     label: "Weight";
     value: AppState.profile.imperial ? "\{round(AppState.profile.weight * 2.20462)} lb" : "\{round(AppState.profile.weight)} kg";
     minus => {
@@ -16,7 +16,7 @@ component WeightRow inherits StepRow {
     }
 }
 
-component HeightRow inherits StepRow {
+export component HeightRow inherits StepRow {
     property <float> inches: AppState.profile.height / 2.54;
     label: "Height";
     value: AppState.profile.imperial ? "\{floor(self.inches / 12)} ft \{round(self.inches - floor(self.inches / 12) * 12)} in" : "\{round(AppState.profile.height)} cm";
@@ -30,7 +30,7 @@ component HeightRow inherits StepRow {
     }
 }
 
-component AgeRow inherits StepRow {
+export component AgeRow inherits StepRow {
     label: "Age";
     value: "\{AppState.profile.age}";
     minus => {
@@ -43,9 +43,9 @@ component AgeRow inherits StepRow {
     }
 }
 
-component SexRow inherits ChoiceRow {
+export component SexRow inherits ChoiceRow {
     label: "Sex";
-    options: ["MALE", "FEMALE"];
+    options: ["Male", "Female"];
     selected: AppState.profile.female ? 1 : 0;
     picked(i) => {
         AppState.profile.female = i == 1;
@@ -53,7 +53,7 @@ component SexRow inherits ChoiceRow {
     }
 }
 
-component GoalRow inherits StepRow {
+export component GoalRow inherits StepRow {
     label: "Daily goal";
     value: "\{AppState.profile.goal} kcal";
     minus => {
@@ -66,7 +66,7 @@ component GoalRow inherits StepRow {
     }
 }
 
-component RestingRow inherits StepRow {
+export component RestingRow inherits StepRow {
     label: "Resting heart rate";
     value: "\{AppState.profile.resting-hr} bpm";
     minus => {
@@ -79,110 +79,712 @@ component RestingRow inherits StepRow {
     }
 }
 
-export component FirstRunPage inherits VerticalLayout {
-    padding: Tokens.space-7;
-    spacing: Tokens.space-5;
-    alignment: start;
+export component HandRow inherits ChoiceRow {
+    options: ["Left", "Right"];
+    selected: AppState.profile.right-hand ? 1 : 0;
+    picked(i) => {
+        AppState.profile.right-hand = i == 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+export component UnitsRow inherits ChoiceRow {
+    label: "Units";
+    options: ["Metric", "Imperial"];
+    selected: AppState.profile.imperial ? 1 : 0;
+    picked(i) => {
+        AppState.profile.imperial = i == 1;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+export component AutoStartRow inherits SwitchRow {
+    label: "Start with SteamVR";
+    on: AppState.profile.auto-start;
+    clicked => {
+        AppState.profile.auto-start = !AppState.profile.auto-start;
+        AppState.profile-changed(AppState.profile);
+    }
+}
+
+// Heading row of a VR page: the page name, a quiet hint on the right.
+component Head inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> hint;
+    in property <bool> hint-lime;
+    min-height: 52px;
+    spacing: Tokens.space-3;
     Title {
-        text: "WELCOME.";
+        text: root.title;
+    }
+    @children
+    Rectangle {
+        horizontal-stretch: 1;
+    }
+    if root.hint != "": Caption {
+        text: root.hint;
+        color: root.hint-lime ? Tokens.accent : Tokens.ink3;
+    }
+}
+
+component Foot inherits Caption {
+    color: Tokens.ink3;
+    vertical-stretch: 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// VR panel pages (800 x 600, beside the rail).
+
+export component PanelToday inherits VerticalLayout {
+    spacing: Tokens.space-3;
+    Head {
+        title: "TODAY";
+        hint: AppState.date-text;
+    }
+    HorizontalLayout {
+        vertical-stretch: 1;
+        spacing: Tokens.space-4;
+        VerticalLayout {
+            width: 224px;
+            spacing: Tokens.space-4;
+            alignment: start;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 210px;
+                    height: 210px;
+                    Ring {
+                        progress: AppState.progress;
+                        thickness: 16px;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Big {
+                            text: AppState.kcal-text;
+                            horizontal-alignment: center;
+                        }
+                        Caption {
+                            text: AppState.goal-text;
+                            color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+            }
+            Group {
+                Row {
+                    quiet: true;
+                    label: "Active";
+                    Body {
+                        text: AppState.active-text;
+                    }
+                }
+                if AppState.hr-shown: Row {
+                    quiet: true;
+                    divider: true;
+                    label: AppState.hr-zone != "" ? AppState.hr-zone : "Heart rate";
+                    Body {
+                        text: AppState.hr-text;
+                        color: AppState.hr-live ? Tokens.ink : Tokens.ink3;
+                    }
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-2;
+            alignment: start;
+            Caption {
+                text: "By game";
+            }
+            Group {
+                if AppState.games.length == 0: Rectangle {
+                    min-height: 120px;
+                    Body {
+                        x: Tokens.space-4;
+                        width: parent.width - 2 * Tokens.space-4;
+                        text: AppState.empty-text;
+                        color: Tokens.ink2;
+                        wrap: word-wrap;
+                    }
+                }
+                for game[i] in AppState.games: GameRowView {
+                    game: game;
+                    divider: i > 0;
+                }
+            }
+        }
+    }
+    Foot {
+        text: "Calories are estimates. Not a medical device.";
+    }
+}
+
+export component PanelWeek inherits VerticalLayout {
+    spacing: Tokens.space-3;
+    // Back and forward sit either side of the period's name.
+    HorizontalLayout {
+        min-height: 52px;
+        spacing: Tokens.space-3;
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.prev;
+                clicked => {
+                    AppState.history-step(-1);
+                }
+            }
+        }
+        Title {
+            text: AppState.history-title;
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.next;
+                enabled: AppState.history-has-next;
+                clicked => {
+                    AppState.history-step(1);
+                }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+        Caption {
+            text: AppState.streak-text;
+            color: Tokens.accent;
+        }
+    }
+    Body {
+        text: AppState.history-total;
+    }
+    Rectangle {
+        height: 232px;
+        border-radius: Tokens.radius-group;
+        background: Tokens.raised;
+        BarChart {
+            x: Tokens.space-4;
+            y: Tokens.space-3;
+            width: parent.width - 2 * Tokens.space-4;
+            height: parent.height - Tokens.space-3 - Tokens.space-3;
+            bars: AppState.bars;
+        }
+    }
+    Group {
+        for game[i] in AppState.history-games: GameRowView {
+            game: game;
+            divider: i > 0;
+            // Two games keep the page from scrolling; the desktop lists more.
+            visible: i < 2;
+            height: i < 2 ? self.preferred-height : 0px;
+        }
+    }
+    Rectangle {
+        vertical-stretch: 1;
+    }
+}
+
+export component PanelYou inherits VerticalLayout {
+    spacing: Tokens.space-3;
+    Head {
+        title: "YOU";
+        hint: "Makes the estimates fit you";
+    }
+    Group {
+        WeightRow { }
+        HeightRow {
+            divider: true;
+        }
+        AgeRow {
+            divider: true;
+        }
+        SexRow {
+            divider: true;
+        }
+        RestingRow {
+            divider: true;
+        }
+    }
+    Rectangle {
+        vertical-stretch: 1;
+    }
+    Foot {
+        text: "Stays on this computer. Used only for the calorie maths.";
+    }
+}
+
+component DeviceRow inherits Row {
+    in property <HrDevice> device;
+    clickable: true;
+    label: root.device.name;
+    clicked => {
+        AppState.hr-pick(root.device.id);
     }
     Caption {
-        text: "Four answers make the estimates fit you. Change them any time in Settings.";
-        wrap: word-wrap;
+        text: root.device.chosen ? "In use" : "Use";
+        color: root.device.chosen ? Tokens.accent : Tokens.ink2;
     }
-    WeightRow { }
-    AgeRow { }
-    SexRow { }
-    GoalRow { }
-    HorizontalLayout {
-        spacing: Tokens.space-5;
+}
+
+component Calibration inherits Group {
+    VerticalLayout {
+        padding: Tokens.space-4;
+        spacing: Tokens.space-3;
+        Body {
+            text: AppState.calibration-title;
+        }
+        Meter {
+            value: AppState.calibration-progress;
+            height: Mode.desktop ? 6px : 10px;
+        }
         Caption {
-            // The one gesture nobody can guess: teach it before the player is in VR.
-            text: "In VR: point at the watch on your wrist and pull the trigger to open the panel.";
-            color: Tokens.ink;
+            text: AppState.calibration-text;
             wrap: word-wrap;
+        }
+    }
+}
+
+export component PanelStrap inherits VerticalLayout {
+    spacing: Tokens.space-3;
+    Head {
+        title: "STRAP";
+        hint: AppState.hr-scanning ? "Scanning…" : AppState.hr-status;
+    }
+    HorizontalLayout {
+        spacing: Tokens.space-3;
+        Caption {
+            text: AppState.hr-devices.length > 0 ? "Found nearby" : "Turn the strap on, then scan";
             horizontal-stretch: 1;
         }
         Button {
-            text: "START";
-            primary: true;
+            text: AppState.hr-scanning ? "Scanning" : "Scan";
+            enabled: !AppState.hr-scanning;
             clicked => {
-                AppState.finish-first-run();
+                AppState.hr-scan();
             }
         }
     }
+    if AppState.hr-devices.length > 0: Group {
+        for device[i] in AppState.hr-devices: DeviceRow {
+            device: device;
+            divider: i > 0;
+        }
+    }
+    Caption {
+        text: "Calibration";
+    }
+    Calibration { }
+    Rectangle {
+        vertical-stretch: 1;
+    }
+    Foot {
+        text: "Any Bluetooth LE heart rate strap works";
+    }
 }
 
-export component TodayPage inherits HorizontalLayout {
-    spacing: Tokens.space-7;
-    VerticalLayout {
-        alignment: start;
-        spacing: Tokens.space-6;
-        Rectangle {
-            width: 320px;
-            height: 320px;
-            Ring {
-                progress: AppState.progress;
+// Delete takes two clicks; the first turns the button into a filled "tap again" button.
+component DeleteButton inherits Button {
+    in-out property <bool> armed;
+    kind: root.armed ? 3 : 2;
+    text: root.armed ? (Mode.desktop ? "Confirm: delete all history" : "Tap again to delete") : "Delete all history";
+    clicked => {
+        if root.armed {
+            AppState.delete-history();
+        }
+        root.armed = !root.armed;
+    }
+}
+
+export component PanelSetup inherits VerticalLayout {
+    spacing: Tokens.space-3;
+    Head {
+        title: "SETUP";
+        hint: "FitnessVR " + AppState.version;
+    }
+    Group {
+        GoalRow { }
+        HandRow {
+            label: "Watch on";
+            divider: true;
+        }
+        UnitsRow {
+            divider: true;
+        }
+        AutoStartRow {
+            divider: true;
+        }
+    }
+    Caption {
+        text: "Your data";
+    }
+    Group {
+        HorizontalLayout {
+            padding: Tokens.space-3;
+            padding-left: Tokens.space-4;
+            spacing: Tokens.space-4;
+            Caption {
+                text: AppState.data-status != "" ? AppState.data-status : "Everything stays on this computer, in one file.";
+                wrap: word-wrap;
+                horizontal-stretch: 1;
             }
             VerticalLayout {
                 alignment: center;
-                Big {
-                    text: AppState.kcal-text;
-                    horizontal-alignment: center;
-                }
-                Caption {
-                    text: AppState.goal-text;
-                    color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
-                    horizontal-alignment: center;
-                }
-            }
-        }
-        HorizontalLayout {
-            alignment: space-around;
-            Stat {
-                value: AppState.active-text;
-                label: "ACTIVE";
-            }
-            if AppState.hr-shown: Stat {
-                value: AppState.hr-text;
-                label: AppState.hr-label;
-                live: AppState.hr-live;
+                DeleteButton { }
             }
         }
     }
-    VerticalLayout {
-        horizontal-stretch: 1;
-        alignment: start;
-        spacing: Tokens.space-5;
+    Rectangle {
+        vertical-stretch: 1;
+    }
+    Foot {
+        text: "Calories are estimates. Not a medical device.";
+    }
+}
+
+// First run, VR panel and desktop: no rail until it is done. Step 1 asks four questions, step 2
+// teaches the one gesture nobody can guess.
+export component FirstRunPage inherits VerticalLayout {
+    in-out property <int> step;
+    padding-left: Mode.desktop ? 64px : Tokens.space-7;
+    padding-right: self.padding-left;
+    padding-top: Mode.desktop ? 56px : 28px;
+    padding-bottom: self.padding-top;
+    spacing: Tokens.space-4;
+    HorizontalLayout {
+        min-height: 52px;
+        Text {
+            text: root.step == 0 ? "WELCOME" : "OPEN IT FROM YOUR WATCH";
+            color: Tokens.ink;
+            font-size: Tokens.type-title;
+            font-family: Tokens.font-display;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
         Caption {
-            text: "BY GAME";
+            text: "Step \{root.step + 1} of 2";
+            color: Tokens.ink3;
         }
-        if AppState.games.length == 0: Body {
-            text: AppState.empty-text;
-            color: Tokens.ink2;
+    }
+    if root.step == 0: Caption {
+        text: "Four answers make the estimates fit you. Change them any time in " + (Mode.desktop ? "Settings." : "You.");
+        wrap: word-wrap;
+    }
+    if root.step == 0: Group {
+        WeightRow { }
+        AgeRow {
+            divider: true;
+        }
+        SexRow {
+            divider: true;
+        }
+        GoalRow {
+            divider: true;
+        }
+    }
+    if root.step == 1: Group {
+        HorizontalLayout {
+            padding: Tokens.space-6;
+            spacing: Tokens.space-5;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 18px;
+                background: Tokens.accent;
+                Icon {
+                    d: Icons.down;
+                    width: 34px;
+                    height: 34px;
+                    stroke-width: 3px;
+                    color: Tokens.on-accent;
+                }
+            }
+            VerticalLayout {
+                spacing: Tokens.space-2;
+                alignment: center;
+                Body {
+                    text: "Point at the watch with your other hand and pull the trigger.";
+                    wrap: word-wrap;
+                }
+                Caption {
+                    text: "That opens this panel. Pull again on the watch to close it.";
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+    Rectangle {
+        vertical-stretch: 1;
+    }
+    HorizontalLayout {
+        spacing: Tokens.space-4;
+        Caption {
+            text: root.step == 0 ? "Next: how to open this panel from your watch" : "The watch shows a hint until you have done it once.";
+            color: Tokens.ink3;
             wrap: word-wrap;
+            horizontal-stretch: 1;
         }
-        for game in AppState.games: GameRowView {
-            game: game;
+        if root.step == 1: VerticalLayout {
+            alignment: center;
+            Button {
+                text: "Back";
+                tall: Mode.desktop ? 44px : 64px;
+                clicked => {
+                    root.step = 0;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Button {
+                text: root.step == 0 ? "Next" : "Got it";
+                kind: 1;
+                tall: Mode.desktop ? 44px : 64px;
+                clicked => {
+                    if root.step == 0 {
+                        root.step = 1;
+                    } else {
+                        AppState.finish-first-run();
+                    }
+                }
+            }
         }
     }
 }
 
-export component HistoryPage inherits VerticalLayout {
-    in property <bool> show-range;
-    spacing: Tokens.space-5;
+// ---------------------------------------------------------------------------------------------
+// Desktop pages (1200 x 800, beside the nav).
+
+component DeskHead inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> sub;
+    spacing: Tokens.space-4;
+    min-height: 44px;
+    Title {
+        text: root.title;
+    }
+    if root.sub != "": Caption {
+        text: root.sub;
+        font-size: Tokens.type-body;
+    }
+    Rectangle {
+        horizontal-stretch: 1;
+    }
+    @children
+}
+
+component Period inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> has-next;
+    callback step(int);
+    spacing: Tokens.space-2;
+    horizontal-stretch: 0;
+    IconButton {
+        icon: Icons.prev;
+        clicked => {
+            root.step(-1);
+        }
+    }
+    Body {
+        text: root.label;
+        width: 150px;
+        horizontal-alignment: center;
+    }
+    IconButton {
+        icon: Icons.next;
+        enabled: root.has-next;
+        clicked => {
+            root.step(1);
+        }
+    }
+}
+
+component Figure inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> unit;
+    in property <length> size: Tokens.type-heading;
+    spacing: Tokens.space-1;
+    Caption {
+        text: root.label;
+    }
     HorizontalLayout {
-        spacing: Tokens.space-5;
+        spacing: Tokens.space-2;
         alignment: start;
-        if root.show-range: Segmented {
-            options: ["DAY", "WEEK", "MONTH"];
+        Text {
+            text: root.value;
+            color: Tokens.ink;
+            font-size: root.size;
+            font-family: Tokens.font-display;
+            vertical-alignment: bottom;
+        }
+        if root.unit != "": Caption {
+            text: root.unit;
+            font-size: Tokens.type-body;
+            vertical-alignment: bottom;
+        }
+    }
+}
+
+component Tile inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    border-radius: Tokens.radius-control;
+    background: Tokens.line;
+    VerticalLayout {
+        padding: 14px;
+        spacing: Tokens.space-1;
+        Caption {
+            text: root.label;
+        }
+        Text {
+            text: root.value;
+            color: Tokens.ink;
+            font-size: Tokens.type-stat;
+            font-family: Tokens.font-body;
+        }
+    }
+}
+
+export component DeskToday inherits VerticalLayout {
+    spacing: Tokens.space-5;
+    DeskHead {
+        title: "TODAY";
+        sub: AppState.date-long;
+        if AppState.streak-text != "": Body {
+            text: AppState.streak-text;
+            color: Tokens.accent;
+        }
+    }
+    HorizontalLayout {
+        vertical-stretch: 1;
+        spacing: Tokens.space-5;
+        VerticalLayout {
+            width: 320px;
+            alignment: start;
+            Rectangle {
+                border-radius: Tokens.radius-group;
+                background: Tokens.raised;
+                VerticalLayout {
+                    padding: Tokens.space-5;
+                    spacing: Tokens.space-5;
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 240px;
+                            height: 240px;
+                            Ring {
+                                progress: AppState.progress;
+                                thickness: 18px;
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: Tokens.space-1;
+                                Big {
+                                    text: AppState.kcal-text;
+                                    horizontal-alignment: center;
+                                }
+                                Caption {
+                                    text: AppState.goal-text;
+                                    font-size: Tokens.type-body;
+                                    color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: Tokens.space-3;
+                        Tile {
+                            label: "Active";
+                            value: AppState.active-text;
+                        }
+                        Tile {
+                            label: "Heart rate";
+                            value: AppState.hr-shown ? AppState.hr-text : "No strap";
+                        }
+                    }
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Tokens.space-3;
+            Caption {
+                text: "By game";
+            }
+            Group {
+                vertical-stretch: 0;
+                if AppState.games.length == 0: Rectangle {
+                    min-height: 72px;
+                    Body {
+                        x: Tokens.space-5;
+                        width: parent.width - 2 * Tokens.space-5;
+                        text: AppState.empty-text;
+                        color: Tokens.ink2;
+                        wrap: word-wrap;
+                    }
+                }
+                for game[i] in AppState.games: GameRowView {
+                    game: game;
+                    divider: i > 0;
+                    visible: i < 3;
+                    height: i < 3 ? self.preferred-height : 0px;
+                }
+            }
+            Caption {
+                text: "This week";
+            }
+            Rectangle {
+                vertical-stretch: 1;
+                min-height: 200px;
+                border-radius: Tokens.radius-group;
+                background: Tokens.raised;
+                VerticalLayout {
+                    padding: Tokens.space-5;
+                    spacing: Tokens.space-4;
+                    HorizontalLayout {
+                        spacing: Tokens.space-7;
+                        alignment: start;
+                        Figure {
+                            label: "Burned";
+                            value: AppState.week-kcal;
+                        }
+                        Figure {
+                            label: "Active min";
+                            value: AppState.week-active;
+                        }
+                        Figure {
+                            label: "Goal days";
+                            value: AppState.week-goal-days;
+                        }
+                    }
+                    BarChart {
+                        vertical-stretch: 1;
+                        gap: 14px;
+                        bars: AppState.week-bars;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DeskHistory inherits VerticalLayout {
+    spacing: Tokens.space-5;
+    DeskHead {
+        title: "HISTORY";
+        Segmented {
+            options: ["Day", "Week", "Month"];
             selected: AppState.history-range;
+            track: Tokens.raised;
+            cell: 84px;
             picked(i) => {
                 AppState.history-range = i;
                 AppState.history-range-changed(i);
             }
         }
-        Stepper {
+        Period {
             label: AppState.history-label;
             has-next: AppState.history-has-next;
             step(d) => {
@@ -191,61 +793,93 @@ export component HistoryPage inherits VerticalLayout {
         }
     }
     HorizontalLayout {
-        Body {
-            text: AppState.history-total;
-            horizontal-stretch: 1;
+        spacing: Tokens.space-7;
+        alignment: start;
+        Figure {
+            label: "Burned";
+            value: AppState.history-kcal;
+            unit: "kcal";
         }
-        Body {
-            text: AppState.streak-text;
-            color: Tokens.accent;
-            horizontal-alignment: right;
+        Figure {
+            label: "Active";
+            value: AppState.history-active;
+            unit: "min";
+        }
+        Figure {
+            label: "Best day";
+            value: AppState.history-best;
+            unit: AppState.history-best-label;
         }
     }
-    BarChart {
-        bars: AppState.bars;
+    Rectangle {
         vertical-stretch: 1;
-        min-height: 160px;
+        min-height: 200px;
+        border-radius: Tokens.radius-group;
+        background: Tokens.raised;
+        VerticalLayout {
+            padding: Tokens.space-5;
+            spacing: Tokens.space-2;
+            BarChart {
+                vertical-stretch: 1;
+                bars: AppState.bars;
+                dense: AppState.bars.length > 7;
+                gap: AppState.bars.length > 7 ? 6px : 14px;
+            }
+        }
     }
-    for game in AppState.history-games: GameRowView {
-        game: game;
+    Group {
+        vertical-stretch: 0;
+        if AppState.history-games.length == 0: Row {
+            label: "Nothing played in this period.";
+        }
+        for game[i] in AppState.history-games: Row {
+            divider: i > 0;
+            label: game.name;
+            Caption {
+                text: game.minutes;
+                font-size: Tokens.type-body;
+            }
+            Body {
+                text: game.kcal;
+                min-width: 80px;
+                horizontal-alignment: right;
+            }
+        }
     }
 }
 
-component SessionRowView inherits HorizontalLayout {
+component SessionRowView inherits Row {
     in property <SessionRow> session;
-    spacing: Tokens.space-4;
-    Caption {
-        text: root.session.time;
-        min-width: Tokens.size-control * 3;
-    }
-    Body {
-        text: root.session.name;
-        horizontal-stretch: 1;
-        overflow: elide;
-    }
+    label: root.session.name;
+    // Clock times line up down the list.
+    lead: root.session.time;
     Caption {
         text: root.session.detail;
+        font-size: Tokens.type-body;
     }
     Body {
         text: root.session.kcal;
-        min-width: Tokens.size-control * 2;
+        min-width: 80px;
         horizontal-alignment: right;
     }
-    Button {
-        text: "TCX";
-        clicked => {
-            AppState.export-session(root.session.id);
+    VerticalLayout {
+        alignment: center;
+        Button {
+            text: "TCX";
+            icon: Icons.down;
+            clicked => {
+                AppState.export-session(root.session.id);
+            }
         }
     }
 }
 
-// Desktop: one day's sessions, each exportable, plus whole-history CSV.
-export component SessionsPage inherits VerticalLayout {
-    spacing: Tokens.space-4;
+export component DeskSessions inherits VerticalLayout {
+    spacing: Tokens.space-5;
     alignment: start;
-    HorizontalLayout {
-        alignment: start;
-        Stepper {
+    DeskHead {
+        title: "SESSIONS";
+        Period {
             label: AppState.sessions-label;
             has-next: AppState.sessions-has-next;
             step(d) => {
@@ -253,176 +887,179 @@ export component SessionsPage inherits VerticalLayout {
             }
         }
     }
-    if AppState.sessions.length == 0: Body {
-        text: "No sessions on this day.";
-        color: Tokens.ink2;
-    }
-    for s in AppState.sessions: SessionRowView {
-        session: s;
+    Group {
+        if AppState.sessions.length == 0: Row {
+            label: "No sessions on this day.";
+        }
+        for s[i] in AppState.sessions: SessionRowView {
+            session: s;
+            divider: i > 0;
+        }
     }
     if AppState.sessions-more != "": Caption {
         text: AppState.sessions-more;
     }
     HorizontalLayout {
-        spacing: Tokens.space-4;
+        spacing: Tokens.space-3;
         alignment: start;
-        padding-top: Tokens.space-3;
         Button {
-            text: "EXPORT DAY AS TCX";
-            primary: true;
+            text: "Export day as TCX";
+            icon: Icons.down;
+            kind: 1;
+            tall: 44px;
             enabled: AppState.sessions.length > 0;
             clicked => {
                 AppState.export-day();
             }
         }
         Button {
-            text: "EXPORT ALL AS CSV";
+            text: "Export everything as CSV";
+            tall: 44px;
             clicked => {
                 AppState.export-csv();
             }
         }
     }
-    Caption {
+    if AppState.export-status != "": Caption {
         text: AppState.export-status;
+        font-size: Tokens.type-body;
+        color: AppState.export-failed ? Tokens.danger-ink : Tokens.accent;
         wrap: word-wrap;
     }
-}
-
-component DeviceRow inherits Rectangle {
-    in property <HrDevice> device;
-    min-height: Tokens.size-control;
-    background: hit.has-hover ? Tokens.raised : Tokens.surface;
-    border-width: 1px;
-    border-color: root.device.chosen ? Tokens.accent : Tokens.edge;
-    HorizontalLayout {
-        padding-left: Tokens.space-4;
-        padding-right: Tokens.space-4;
-        Body {
-            text: root.device.name;
-            horizontal-stretch: 1;
-            overflow: elide;
-        }
-        Caption {
-            text: root.device.chosen ? "IN USE" : "USE";
-            color: root.device.chosen ? Tokens.accent : Tokens.ink2;
-        }
-    }
-    hit := Hit {
-        clicked => {
-            AppState.hr-pick(root.device.id);
-        }
+    Foot {
+        text: "TCX opens in most fitness apps and training logs. CSV has every second.";
     }
 }
 
-export component SettingsPage inherits VerticalLayout {
-    property <int> section;
-    // Destructive actions take two clicks; the first only arms the button.
-    property <bool> confirm-delete;
+export component DeskSettings inherits VerticalLayout {
+    property <bool> armed;
     spacing: Tokens.space-5;
-    alignment: start;
+    DeskHead {
+        title: "SETTINGS";
+        sub: "Changes save at once";
+    }
     HorizontalLayout {
-        alignment: start;
-        Segmented {
-            options: ["BODY", "WATCH", "STRAP", "DATA"];
-            selected: root.section;
-            picked(i) => {
-                root.section = i;
-                root.confirm-delete = false;
+        spacing: Tokens.space-5;
+        vertical-stretch: 1;
+        VerticalLayout {
+            spacing: Tokens.space-2;
+            alignment: start;
+            horizontal-stretch: 1;
+            // Equal columns: both start from nothing and share the width.
+            preferred-width: 1px;
+            // Room for "Resting heart rate" beside its stepper at the window's minimum width.
+            min-width: 348px;
+            Caption {
+                text: "Body";
             }
-        }
-    }
-    if root.section == 0: VerticalLayout {
-        spacing: Tokens.space-3;
-        WeightRow { }
-        HeightRow { }
-        AgeRow { }
-        SexRow { }
-        RestingRow { }
-    }
-    if root.section == 1: VerticalLayout {
-        spacing: Tokens.space-3;
-        GoalRow { }
-        ChoiceRow {
-            label: "Watch hand";
-            options: ["LEFT", "RIGHT"];
-            selected: AppState.profile.right-hand ? 1 : 0;
-            picked(i) => {
-                AppState.profile.right-hand = i == 1;
-                AppState.profile-changed(AppState.profile);
-            }
-        }
-        ChoiceRow {
-            label: "Units";
-            options: ["METRIC", "IMPERIAL"];
-            selected: AppState.profile.imperial ? 1 : 0;
-            picked(i) => {
-                AppState.profile.imperial = i == 1;
-                AppState.profile-changed(AppState.profile);
-            }
-        }
-        ChoiceRow {
-            label: "Start with SteamVR";
-            options: ["OFF", "ON"];
-            selected: AppState.profile.auto-start ? 1 : 0;
-            picked(i) => {
-                AppState.profile.auto-start = i == 1;
-                AppState.profile-changed(AppState.profile);
-            }
-        }
-    }
-    if root.section == 2: VerticalLayout {
-        spacing: Tokens.space-3;
-        HorizontalLayout {
-            spacing: Tokens.space-3;
-            Body {
-                text: "Heart rate strap";
-                horizontal-stretch: 1;
+            Group {
+                WeightRow { }
+                HeightRow {
+                    divider: true;
+                }
+                AgeRow {
+                    divider: true;
+                }
+                SexRow {
+                    divider: true;
+                }
+                RestingRow {
+                    divider: true;
+                }
             }
             Caption {
-                text: AppState.hr-status;
+                text: "Watch";
             }
-            Button {
-                text: AppState.hr-scanning ? "SCANNING..." : "SCAN";
-                clicked => {
-                    AppState.hr-scan();
+            Group {
+                GoalRow { }
+                HandRow {
+                    label: "Watch hand";
+                    divider: true;
+                }
+                UnitsRow {
+                    divider: true;
                 }
             }
         }
-        for device in AppState.hr-devices: DeviceRow {
-            device: device;
-        }
-        Caption {
-            text: AppState.calibration-text;
-            wrap: word-wrap;
-        }
-    }
-    if root.section == 3: VerticalLayout {
-        spacing: Tokens.space-4;
-        Body {
-            text: "Everything stays on this computer, in one file:";
-            color: Tokens.ink2;
-        }
-        Caption {
-            text: AppState.data-path;
-            color: Tokens.ink;
-            wrap: word-wrap;
-        }
-        HorizontalLayout {
+        VerticalLayout {
+            spacing: Tokens.space-2;
             alignment: start;
-            padding-top: Tokens.space-3;
-            Button {
-                text: root.confirm-delete ? "CONFIRM: DELETE ALL HISTORY" : "DELETE ALL HISTORY";
-                danger: root.confirm-delete;
-                clicked => {
-                    if root.confirm-delete {
-                        AppState.delete-history();
+            horizontal-stretch: 1;
+            // Equal columns: both start from nothing and share the width.
+            preferred-width: 1px;
+            Caption {
+                text: "Device";
+            }
+            Group {
+                AutoStartRow { }
+                Row {
+                    divider: true;
+                    label: "Heart rate strap";
+                    sub: AppState.hr-status;
+                    VerticalLayout {
+                        alignment: center;
+                        Button {
+                            text: AppState.hr-scanning ? "Scanning" : "Scan";
+                            enabled: !AppState.hr-scanning;
+                            clicked => {
+                                AppState.hr-scan();
+                            }
+                        }
                     }
-                    root.confirm-delete = !root.confirm-delete;
+                }
+                for device in AppState.hr-devices: DeviceRow {
+                    device: device;
+                    divider: true;
                 }
             }
-        }
-        Caption {
-            text: AppState.data-status;
+            Caption {
+                text: "Data";
+            }
+            Group {
+                VerticalLayout {
+                    padding: Tokens.space-5;
+                    spacing: Tokens.space-3;
+                    Caption {
+                        text: "Everything stays on this computer, in one file:";
+                        font-size: Tokens.type-body;
+                    }
+                    Rectangle {
+                        border-radius: Tokens.radius-small;
+                        background: Tokens.bg;
+                        HorizontalLayout {
+                            padding: Tokens.space-3;
+                            Text {
+                                text: AppState.data-path;
+                                color: Tokens.ink;
+                                font-size: Tokens.type-label;
+                                font-family: Tokens.font-body;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: Tokens.space-3;
+                        alignment: start;
+                        Button {
+                            text: "Open folder";
+                            clicked => {
+                                AppState.open-data-folder();
+                            }
+                        }
+                        delete := DeleteButton { }
+                    }
+                    if delete.armed: Text {
+                        text: "Second click deletes every day and session. It can't be undone.";
+                        color: Tokens.danger-ink;
+                        font-size: Tokens.type-small;
+                        font-family: Tokens.font-body;
+                        wrap: word-wrap;
+                    }
+                    if AppState.data-status != "": Caption {
+                        text: AppState.data-status;
+                    }
+                }
+            }
         }
     }
 }

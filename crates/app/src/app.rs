@@ -27,6 +27,7 @@ pub enum UiCmd {
     ExportDay,
     ExportCsv,
     DeleteHistory,
+    OpenDataFolder,
     ClosePanel,
 }
 
@@ -61,6 +62,8 @@ pub fn wire(s: &AppState, q: &Queue) {
     s.on_export_csv(move || p(UiCmd::ExportCsv));
     let p = push(q);
     s.on_delete_history(move || p(UiCmd::DeleteHistory));
+    let p = push(q);
+    s.on_open_data_folder(move || p(UiCmd::OpenDataFolder));
     let p = push(q);
     s.on_close_panel(move || p(UiCmd::ClosePanel));
 }
@@ -109,6 +112,8 @@ pub struct App {
     pub hr: Hr,
     /// Set by the overlay each tick; always false on the desktop.
     pub tracking: bool,
+    /// Name of the game in front (overlay only), for the watch pill.
+    pub game: String,
     /// Replaces the empty-state hint, e.g. when SteamVR is missing.
     pub notice: Option<String>,
     nav: Nav,
@@ -125,6 +130,7 @@ impl App {
         Ok(Self {
             hr: hr(&profile),
             tracking: false,
+            game: String::new(),
             notice: None,
             store,
             profile,
@@ -191,6 +197,11 @@ impl App {
                 self.data_status = match self.store.delete_history() {
                     Ok(()) => "History deleted. Your profile is kept.".into(),
                     Err(e) => format!("Delete failed: {e}"),
+                }
+            }
+            UiCmd::OpenDataFolder => {
+                if let Some(dir) = std::path::Path::new(&self.db_path).parent() {
+                    open_folder(dir);
                 }
             }
             UiCmd::ClosePanel => return true,
@@ -280,6 +291,7 @@ impl App {
         let devices = self.hr.devices();
         let live = Live {
             tracking: self.tracking,
+            game: &self.game,
             hr: self.hr.bpm(),
             hr_status: self.hr.status(),
             devices: &devices,
@@ -288,11 +300,26 @@ impl App {
             tracing::warn!("refresh: {e}");
         }
         s.set_export_status(self.export_status.as_str().into());
+        s.set_export_failed(self.export_status.starts_with("Export failed"));
         s.set_data_status(self.data_status.as_str().into());
         s.set_data_path(self.db_path.as_str().into());
         if let Some(n) = &self.notice {
             s.set_empty_text(n.as_str().into());
         }
+    }
+}
+
+/// Shows a folder in the system file manager.
+fn open_folder(dir: &std::path::Path) {
+    let program = if cfg!(windows) {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    if let Err(e) = std::process::Command::new(program).arg(dir).spawn() {
+        tracing::warn!("open {}: {e}", dir.display());
     }
 }
 

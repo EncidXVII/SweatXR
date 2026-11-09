@@ -1,29 +1,25 @@
 // The three surfaces. Same pages and tokens everywhere; only the frame differs.
 import { Tokens, Mode } from "@tokens";
 import "fonts/Anton-Regular.ttf";
-import "fonts/Ubuntu-Regular.ttf";
+import "fonts/Barlow-Regular.ttf";
+import "fonts/Barlow-SemiBold.ttf";
 import { AppState, Feedback } from "state.slint";
-import { Button, Caption, Cursor, Ring, TabBar } from "kit.slint";
-import { FirstRunPage, HistoryPage, SessionsPage, SettingsPage, TodayPage } from "pages.slint";
+import { Caption, Cursor, Hit, Icon, Icons, Motion, Ring } from "kit.slint";
+import { DeskHistory, DeskSessions, DeskSettings, DeskToday, FirstRunPage, PanelSetup, PanelStrap, PanelToday, PanelWeek, PanelYou } from "pages.slint";
 
 export { AppState, Feedback, Mode }
 
-component Footer inherits Caption {
-    text: "Calories are estimates. Not a medical device.";
-    color: Tokens.ink3;
-}
-
-// Number in the display face with a small unit.
+// Number in the display face with its unit beside it.
 component Reading inherits HorizontalLayout {
     in property <string> value;
     in property <string> unit;
-    in property <bool> live;
-    spacing: Tokens.space-1;
+    in property <bool> faint;
+    spacing: 10px;
     alignment: start;
     Text {
         text: root.value;
-        color: root.live ? Tokens.accent : Tokens.ink;
-        font-size: Tokens.type-watch-small;
+        color: root.faint ? Tokens.ink3 : Tokens.ink;
+        font-size: Tokens.type-heading;
         font-family: Tokens.font-display;
         vertical-alignment: bottom;
     }
@@ -33,143 +29,370 @@ component Reading inherits HorizontalLayout {
     }
 }
 
-// 8 cm on the wrist. One glance answers one question: the ring with today's kcal inside.
-// Secondary readings sit to the side for a second look.
+// The DesktopVR watch card, 14 cm on the wrist. One glance answers one question: the ring with
+// today's kcal inside; the session, active minutes and heart rate sit beside it.
+// The card grows one line down (never up: the ring row stays put) for a hint or a warning, and
+// fades to lime for a few seconds at the goal. The texture is the card at its tallest; below a
+// short card it is transparent.
 export component WatchView inherits Window {
-    width: 512px;
-    height: 320px;
-    background: Tokens.bg;
-    if !AppState.celebrate: HorizontalLayout {
-        padding: Tokens.space-5;
-        spacing: Tokens.space-5;
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 272px;
-                height: 272px;
-                Ring {
-                    progress: AppState.progress;
-                    thickness: 20px;
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: AppState.kcal-text;
-                        color: Tokens.ink;
-                        font-size: Tokens.type-watch-big;
-                        font-family: Tokens.font-display;
-                        horizontal-alignment: center;
-                    }
-                    Caption {
-                        text: "KCAL EST.";
-                        horizontal-alignment: center;
-                    }
-                }
-            }
-        }
-        if !AppState.panel-seen: Caption {
-            // Shown until the panel has been opened once: the gesture is not guessable.
-            text: "POINT HERE AND PULL THE TRIGGER";
-            color: Tokens.accent;
-            wrap: word-wrap;
-            horizontal-stretch: 1;
-        }
-        if AppState.panel-seen: VerticalLayout {
-            alignment: center;
-            spacing: Tokens.space-3;
-            if AppState.tracking: HorizontalLayout {
-                spacing: Tokens.space-2;
-                alignment: start;
-                VerticalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: Tokens.space-3;
-                        height: Tokens.space-3;
-                        border-radius: self.width / 2;
-                        background: Tokens.accent;
-                    }
-                }
-                Caption {
-                    text: "LIVE";
-                    color: Tokens.accent;
-                }
-            }
-            Reading {
-                value: AppState.active-value;
-                unit: "MIN";
-            }
-            if AppState.hr-shown: Reading {
-                value: AppState.hr-value;
-                unit: "BPM";
-                live: AppState.hr-live;
-            }
-            if AppState.hr-zone != "": Caption {
-                text: AppState.hr-zone;
-            }
-        }
+    width: 560px;
+    height: 324px;
+    background: transparent;
+    // Pointed at with the other hand: say what the trigger does.
+    property <bool> pointed: AppState.cursor-visible;
+    // 0 none, 1 open hint, 2 first use, 3 strap lost. Warnings win over hints.
+    property <int> strip: AppState.hr-lost ? 3 : !AppState.panel-seen ? 2 : root.pointed ? 1 : 0;
+    property <length> card-h: root.strip > 0 ? 324px : 232px;
+    animate card-h {
+        duration: Motion.slow;
+        easing: cubic-bezier(0.23, 1, 0.32, 1);
     }
-    // Goal reached: the whole face turns lime for a few seconds.
-    if AppState.celebrate: Rectangle {
-        background: Tokens.accent;
-        VerticalLayout {
-            alignment: center;
-            Text {
-                text: "GOAL";
-                color: Tokens.on-accent;
-                font-size: Tokens.type-watch-big;
-                font-family: Tokens.font-display;
-                horizontal-alignment: center;
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: root.card-h;
+        border-radius: Tokens.radius-card;
+        background: root.pointed ? Tokens.surface : Tokens.bg;
+        animate background {
+            duration: Motion.fast;
+            easing: ease-out;
+        }
+        clip: true;
+        HorizontalLayout {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: 232px;
+            padding-left: Tokens.space-6;
+            padding-right: Tokens.space-6;
+            spacing: Tokens.space-6;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 184px;
+                    height: 184px;
+                    Ring {
+                        progress: AppState.progress;
+                        thickness: 14px;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: AppState.kcal-text;
+                            color: Tokens.ink;
+                            font-size: Tokens.type-watch-big;
+                            font-family: Tokens.font-display;
+                            horizontal-alignment: center;
+                        }
+                        Caption {
+                            text: AppState.goal-text;
+                            color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
             }
-            Text {
-                text: AppState.kcal-text + " KCAL";
-                color: Tokens.on-accent;
-                font-size: Tokens.type-watch-small;
-                font-family: Tokens.font-display;
-                horizontal-alignment: center;
+            VerticalLayout {
+                alignment: center;
+                spacing: 10px;
+                horizontal-stretch: 1;
+                // The pill names what is being counted; the dot means counting.
+                HorizontalLayout {
+                    alignment: start;
+                    Rectangle {
+                        height: 36px;
+                        border-radius: 18px;
+                        background: Tokens.raised;
+                        min-width: pill.preferred-width;
+                        max-width: 304px;
+                        clip: true;
+                        pill := HorizontalLayout {
+                            padding-left: 14px;
+                            padding-right: 14px;
+                            spacing: Tokens.space-2;
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 12px;
+                                    height: 12px;
+                                    border-radius: 6px;
+                                    background: AppState.tracking ? Tokens.accent : Tokens.ink3;
+                                }
+                            }
+                            Text {
+                                text: AppState.tracking && AppState.game-name != "" ? AppState.game-name : AppState.tracking ? "Counting" : "Not counting";
+                                color: AppState.tracking ? Tokens.ink : Tokens.ink2;
+                                font-size: Tokens.type-small;
+                                font-family: Tokens.font-body;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+                Reading {
+                    value: AppState.active-value;
+                    unit: "min active";
+                }
+                if AppState.hr-shown: Reading {
+                    value: AppState.hr-value;
+                    unit: AppState.hr-label;
+                    faint: !AppState.hr-live;
+                }
+                if !AppState.hr-shown && !AppState.tracking: Caption {
+                    text: "Starts when you play";
+                    color: Tokens.ink3;
+                }
+            }
+        }
+        // One line under the numbers for a hint or a warning (DesktopVR's low-battery strip).
+        Rectangle {
+            x: 12px;
+            y: 232px;
+            width: parent.width - 24px;
+            height: 68px;
+            border-radius: 18px;
+            background: root.strip == 3 ? Tokens.danger-bg : root.strip == 2 ? Tokens.line : Tokens.raised;
+            opacity: root.strip > 0 ? 1 : 0;
+            animate opacity {
+                duration: Motion.fade;
+                easing: ease-out;
+            }
+            HorizontalLayout {
+                padding-left: 18px;
+                padding-right: 18px;
+                spacing: 14px;
+                VerticalLayout {
+                    alignment: center;
+                    if root.strip == 2: Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 11px;
+                        background: Tokens.accent;
+                        Icon {
+                            d: Icons.down;
+                            width: 24px;
+                            height: 24px;
+                            stroke-width: 2.4px;
+                            color: Tokens.on-accent;
+                        }
+                    }
+                    if root.strip != 2: Icon {
+                        d: root.strip == 3 ? Icons.warn : Icons.arrow;
+                        color: root.strip == 3 ? Tokens.danger-ink : Tokens.accent;
+                    }
+                }
+                Text {
+                    text: root.strip == 3 ? "Strap lost · counting from movement" : root.strip == 2 ? "Point here, then pull the trigger" : "Pull the trigger to open the panel";
+                    color: root.strip == 3 ? Tokens.danger-ink : Tokens.ink;
+                    font-size: Tokens.type-small;
+                    font-family: Tokens.font-body;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+        // Goal reached: the whole card turns lime for a few seconds.
+        Rectangle {
+            // Own corners: the software renderer clips children to the card's box, not its radius.
+            border-radius: Tokens.radius-card;
+            background: Tokens.accent;
+            opacity: AppState.celebrate ? 1 : 0;
+            animate opacity {
+                duration: Motion.fade;
+                easing: ease-out;
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 6px;
+                Text {
+                    text: "GOAL";
+                    color: Tokens.on-accent;
+                    font-size: Tokens.type-watch-huge;
+                    font-family: Tokens.font-display;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: AppState.celebrate-text;
+                    color: Tokens.on-accent;
+                    font-size: Tokens.type-stat;
+                    font-family: Tokens.font-body;
+                    horizontal-alignment: center;
+                }
             }
         }
     }
     Cursor { }
 }
 
-// 0.8 m wide at 0.7 m, opened from the watch.
-export component PanelView inherits Window {
-    in-out property <int> tab;
-    width: 1200px;
-    height: 800px;
-    background: Tokens.bg;
-    if AppState.first-run: FirstRunPage { }
-    if !AppState.first-run: VerticalLayout {
-        padding: Tokens.space-7;
-        spacing: Tokens.space-6;
+// A rail tab: icon in a pill (lime when chosen) over its name.
+component RailTab inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> on;
+    callback clicked();
+    height: 88px;
+    border-radius: Tokens.radius-group;
+    background: hit.pressed && !root.on ? Tokens.pressed : hit.has-hover && !root.on ? Tokens.line : transparent;
+    animate background {
+        duration: hit.pressed ? 0ms : Motion.fast;
+        easing: ease-out;
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 6px;
         HorizontalLayout {
-            spacing: Tokens.space-6;
-            TabBar {
-                tabs: ["TODAY", "WEEK", "SETTINGS"];
-                selected <=> root.tab;
-            }
+            alignment: center;
             Rectangle {
-                horizontal-stretch: 1;
-            }
-            Button {
-                text: "CLOSE";
-                clicked => {
-                    AppState.close-panel();
+                width: 56px;
+                height: 40px;
+                border-radius: 20px;
+                background: root.on ? Tokens.accent : transparent;
+                animate background {
+                    duration: Motion.fast;
+                    easing: ease-out;
+                }
+                Icon {
+                    d: root.icon;
+                    color: root.on ? Tokens.on-accent : Tokens.ink2;
                 }
             }
         }
-        if root.tab == 0: TodayPage {
-            vertical-stretch: 1;
+        Text {
+            text: root.label;
+            color: root.on ? Tokens.ink : Tokens.ink2;
+            font-size: Tokens.type-small;
+            font-family: Tokens.font-body;
+            font-weight: root.on ? 600 : 400;
+            horizontal-alignment: center;
         }
-        if root.tab == 1: HistoryPage {
-            vertical-stretch: 1;
+    }
+    hit := Hit {
+        clicked => {
+            root.clicked();
         }
-        if root.tab == 2: SettingsPage {
-            vertical-stretch: 1;
+    }
+}
+
+// The DesktopVR rail menu, 50 cm wide at arm's length, opened from the watch.
+export component PanelView inherits Window {
+    in-out property <int> tab;
+    width: 800px;
+    height: 600px;
+    background: transparent;
+    Rectangle {
+        border-radius: Tokens.radius-panel;
+        background: Tokens.bg;
+        clip: true;
+        if AppState.first-run: FirstRunPage { }
+        if !AppState.first-run: HorizontalLayout {
+            Rectangle {
+                width: 120px;
+                background: Tokens.surface;
+                VerticalLayout {
+                    padding-top: Tokens.space-3;
+                    padding-bottom: Tokens.space-3;
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: Tokens.space-1;
+                    for t[i] in [
+                        { label: "Today", icon: Icons.today },
+                        { label: "Week", icon: Icons.week },
+                        { label: "You", icon: Icons.you },
+                        { label: "Strap", icon: Icons.strap },
+                        { label: "Setup", icon: Icons.setup },
+                    ]: RailTab {
+                        label: t.label;
+                        icon: t.icon;
+                        on: i == root.tab;
+                        clicked => {
+                            root.tab = i;
+                        }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+                    close := Rectangle {
+                        height: 64px;
+                        border-radius: Tokens.radius-group;
+                        background: close-hit.pressed ? Tokens.dim : close-hit.has-hover ? Tokens.pressed : Tokens.raised;
+                        animate background {
+                            duration: close-hit.pressed ? 0ms : Motion.fast;
+                            easing: ease-out;
+                        }
+                        Icon {
+                            d: Icons.close;
+                            stroke-width: 2.4px;
+                        }
+                        close-hit := Hit {
+                            clicked => {
+                                AppState.close-panel();
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    padding-top: Tokens.space-5;
+                    padding-bottom: Tokens.space-5;
+                    padding-left: Tokens.space-6;
+                    padding-right: Tokens.space-6;
+                    if root.tab == 0: PanelToday { }
+                    if root.tab == 1: PanelWeek { }
+                    if root.tab == 2: PanelYou { }
+                    if root.tab == 3: PanelStrap { }
+                    if root.tab == 4: PanelSetup { }
+                }
+            }
         }
-        Footer { }
     }
     Cursor { }
+}
+
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> on;
+    callback clicked();
+    height: 44px;
+    border-radius: Tokens.radius-control;
+    background: root.on ? Tokens.raised : hit.pressed ? Tokens.line : hit.has-hover ? Tokens.raised : transparent;
+    animate background {
+        duration: hit.pressed ? 0ms : Motion.fast;
+        easing: ease-out;
+    }
+    HorizontalLayout {
+        padding-left: Tokens.space-3;
+        padding-right: Tokens.space-3;
+        spacing: Tokens.space-3;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                d: root.icon;
+                width: 20px;
+                height: 20px;
+                stroke-width: 2px;
+                color: root.on ? Tokens.accent : Tokens.ink2;
+            }
+        }
+        Text {
+            text: root.label;
+            color: root.on ? Tokens.ink : Tokens.ink2;
+            font-size: Tokens.type-body;
+            font-family: Tokens.font-body;
+            font-weight: root.on ? 600 : 400;
+            vertical-alignment: center;
+        }
+    }
+    hit := Hit {
+        clicked => {
+            root.clicked();
+        }
+    }
 }
 
 export component DesktopWindow inherits Window {
@@ -181,29 +404,66 @@ export component DesktopWindow inherits Window {
     min-height: 720px;
     background: Tokens.bg;
     if AppState.first-run: FirstRunPage { }
-    if !AppState.first-run: VerticalLayout {
-        padding: Tokens.space-7;
-        spacing: Tokens.space-6;
-        HorizontalLayout {
-            alignment: start;
-            TabBar {
-                tabs: ["TODAY", "HISTORY", "SESSIONS", "SETTINGS"];
-                selected <=> root.tab;
+    if !AppState.first-run: HorizontalLayout {
+        Rectangle {
+            width: 216px;
+            background: Tokens.surface;
+            VerticalLayout {
+                padding-top: Tokens.space-5;
+                padding-bottom: Tokens.space-5;
+                padding-left: Tokens.space-3;
+                padding-right: Tokens.space-3;
+                spacing: Tokens.space-1;
+                HorizontalLayout {
+                    padding-left: Tokens.space-3;
+                    padding-top: Tokens.space-1;
+                    padding-bottom: Tokens.space-5;
+                    Text {
+                        text: "FITNESSVR";
+                        color: Tokens.ink;
+                        font-size: Tokens.type-brand;
+                        font-family: Tokens.font-display;
+                    }
+                }
+                for t[i] in [
+                    { label: "Today", icon: Icons.today },
+                    { label: "History", icon: Icons.week },
+                    { label: "Sessions", icon: Icons.sessions },
+                    { label: "Settings", icon: Icons.setup },
+                ]: NavItem {
+                    label: t.label;
+                    icon: t.icon;
+                    on: i == root.tab;
+                    clicked => {
+                        root.tab = i;
+                    }
+                }
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    padding-left: Tokens.space-3;
+                    padding-right: Tokens.space-3;
+                    Text {
+                        text: "Calories are estimates.\nNot a medical device.";
+                        color: Tokens.ink3;
+                        font-size: Tokens.type-small;
+                        font-family: Tokens.font-body;
+                        wrap: word-wrap;
+                    }
+                }
             }
         }
-        if root.tab == 0: TodayPage {
-            vertical-stretch: 1;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding-top: 28px;
+            padding-bottom: 28px;
+            padding-left: 36px;
+            padding-right: 36px;
+            if root.tab == 0: DeskToday { }
+            if root.tab == 1: DeskHistory { }
+            if root.tab == 2: DeskSessions { }
+            if root.tab == 3: DeskSettings { }
         }
-        if root.tab == 1: HistoryPage {
-            show-range: true;
-            vertical-stretch: 1;
-        }
-        if root.tab == 2: SessionsPage {
-            vertical-stretch: 1;
-        }
-        if root.tab == 3: SettingsPage {
-            vertical-stretch: 1;
-        }
-        Footer { }
     }
 }

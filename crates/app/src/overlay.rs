@@ -15,28 +15,33 @@ use fitvr_core::tracker::{Event, Tracker};
 use fitvr_hr::{BleHr, FakeHr};
 use fitvr_ui::offscreen::{Pointer, Surface, install};
 use fitvr_ui::view::progress;
-use fitvr_ui::{AppState, Feedback, PanelView, WatchView};
+use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use fitvr_vr::{
     AppKind, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT,
-    ROLE_RIGHT, Vr, WATCH_OFFSET, WATCH_WIDTH_M, WatchLook, laser, laser_texture, panel_in_front, position,
-    ray, uv_to_px, valid, watch_look,
+    ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance, gaze_visibility, inverse, laser, laser_texture,
+    near_face, panel_in_front, position, ray, uv_to_px, valid, watch_offset,
 };
 use slint::ComponentHandle;
 
 use crate::Opts;
 use crate::app::{App, Hr, Queue, wire};
-use crate::setup::{self, ACTION_HAPTIC, ACTION_SELECT, ACTION_SET, Dirs};
+use crate::setup::{self, ACTION_HAPTIC, ACTION_POINTER, ACTION_SELECT, ACTION_SET, Dirs};
 
 const POLL: Duration = Duration::from_millis(20);
 const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
-const GLANCE_HOLD: Duration = Duration::from_millis(300);
 /// How long the watch shows the lime GOAL face.
 const CELEBRATE: Duration = Duration::from_secs(4);
-const ALPHA_AWAY: f32 = 0.4;
+/// Watch brightness when not looked at: still there at a glance, never in the way.
+const ALPHA_AWAY: f32 = 0.35;
+/// The watch follows a glance this fast (DesktopVR's time constant); the panel fades in over this.
+const WATCH_FADE_S: f32 = 0.06;
+const PANEL_FADE_S: f32 = 0.16;
 const HOME_KEY: &str = "steamvr.home";
 const HOME_NAME: &str = "SteamVR Home";
-const WATCH_PX: (u32, u32) = (512, 320);
-const PANEL_PX: (u32, u32) = (1200, 800);
+/// The watch card at its tallest (232 px plus a strip line); a shorter card leaves the rest clear.
+const WATCH_PX: (u32, u32) = (560, 324);
+const WATCH_CARD_PX: f32 = 232.0;
+const PANEL_PX: (u32, u32) = (800, 600);
 
 #[derive(Clone, Copy)]
 enum Buzz {
@@ -47,6 +52,7 @@ enum Buzz {
 struct Input {
     set: u64,
     select: u64,
+    pointer: u64,
     haptic: u64,
     hands: [u64; 2],
 }
@@ -57,6 +63,7 @@ impl Input {
         Ok(Self {
             set: vr.handle(Handle::ActionSet, ACTION_SET)?,
             select: vr.handle(Handle::Action, ACTION_SELECT)?,
+            pointer: vr.handle(Handle::Action, ACTION_POINTER)?,
             haptic: vr.handle(Handle::Action, ACTION_HAPTIC)?,
             hands: [
                 vr.handle(Handle::Source, "/user/hand/left")?,
@@ -82,9 +89,20 @@ fn role(h: Hand) -> u32 {
 #[derive(Default)]
 struct Look {
     attached_to: Option<u32>,
-    facing_since: Option<Instant>,
+    /// Tip pose in the device's frame the watch was attached with.
+    tip_offset: Option<Mat>,
+    /// Hand the watch was attached for (its text runs the other way on the other hand).
+    hand: Option<Hand>,
     alpha: f32,
+    shown_alpha: f32,
     visible: bool,
+}
+
+/// The controller's tip pose (same on every controller model), else its raw pose.
+fn tip(vr: &Vr, input: Option<&Input>, h: Hand, raw: Option<&Mat>) -> Option<Mat> {
+    input
+        .and_then(|i| vr.pose(i.pointer, i.hand(h)))
+        .or_else(|| raw.copied())
 }
 
 pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
@@ -113,8 +131,12 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     };
 
     install();
+    let motion = crate::motion::animations_enabled();
     let mut watch = Surface::new(WatchView::new, WATCH_PX.0, WATCH_PX.1)?;
     let mut panel = Surface::new(PanelView::new, PANEL_PX.0, PANEL_PX.1)?;
+    for mode in [watch.ui.global::<Mode>(), panel.ui.global::<Mode>()] {
+        mode.set_reduce_motion(!motion);
+    }
     let queue = Queue::default();
     let buzz: Rc<Cell<Option<Buzz>>> = Rc::default();
     for state in [watch.ui.global::<AppState>(), panel.ui.global::<AppState>()] {
@@ -144,14 +166,17 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let mut scene = (HOME_KEY.to_owned(), HOME_NAME.to_owned());
     let (mut last_sec, mut last_watch_frame) = (0i64, Instant::now() - WATCH_MIN_FRAME);
     let mut look = Look {
-        alpha: -1.0,
+        shown_alpha: -1.0,
         ..Look::default()
     };
+    let (mut last_frame, mut panel_alpha, mut on_watch) = (Instant::now(), 1.0f32, false);
     let (mut panel_open, mut select_down, mut scene_dirty, mut watch_stale) = (false, false, true, false);
     let (mut loops, mut redraws) = (0u64, 0u64);
 
     'main: loop {
         let loop_start = Instant::now();
+        let dt = loop_start.duration_since(last_frame).as_secs_f32();
+        last_frame = loop_start;
         while let Some(ev) = vr.poll_event() {
             match ev.event_type {
                 EVENT_QUIT => break 'main,
@@ -177,6 +202,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                     .scene_app()
                     .unwrap_or_else(|| (HOME_KEY.to_owned(), HOME_NAME.to_owned()));
                 scene_dirty = false;
+                app.game.clone_from(&scene.1);
                 if let Err(e) = app.store.set_app_name(&scene.0, &scene.1) {
                     tracing::warn!("app name: {e}");
                 }
@@ -218,6 +244,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         let head = poses.get(HMD as usize).and_then(valid);
         let wrist = vr.controller(role(hand));
         let wrist_pose = wrist.and_then(|i| poses.get(i as usize)).and_then(valid);
+        let wrist_tip = tip(&vr, input.as_ref(), hand, wrist_pose);
         match (opts.pin_watch, head) {
             (true, Some(h)) if !look.visible => {
                 look.visible = vr
@@ -230,17 +257,25 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 &vr,
                 ov_watch,
                 &mut look,
-                wrist,
-                wrist_pose,
+                Wrist {
+                    hand,
+                    device: wrist,
+                    raw: wrist_pose,
+                    tip: wrist_tip.as_ref(),
+                },
                 head,
-                celebrate_until.is_some(),
+                // Celebrating or pointed at: full brightness wherever the wrist points.
+                celebrate_until.is_some() || on_watch,
+                if motion { dt } else { f32::INFINITY },
             ),
         }
 
-        let pointer = vr
+        let pointer_raw = vr
             .controller(role(other(hand)))
             .and_then(|i| poses.get(i as usize))
             .and_then(valid);
+        let pointer = tip(&vr, input.as_ref(), other(hand), pointer_raw);
+        let pointer = pointer.as_ref();
         let (pressed, changed) = match &input {
             Some(inp) => {
                 let _ = vr.update_actions(inp.set);
@@ -282,9 +317,17 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             && let Some(p) = pointer
         {
             let (o, d) = ray(p);
-            beam = vr.intersect(ov_watch, o, d).map(|(_, hit)| (o, hit));
+            // Only the card counts, not the clear part of the texture under a short card. Once on
+            // it, the grown card counts too, so the strip it shows can be pointed at.
+            let s = watch.ui.global::<AppState>();
+            let tall = on_watch || s.get_hr_lost() || !s.get_panel_seen();
+            let card = if tall { WATCH_PX.1 as f32 } else { WATCH_CARD_PX };
+            beam = vr
+                .intersect(ov_watch, o, d)
+                .filter(|(uv, _)| uv_to_px(*uv, WATCH_PX.0, WATCH_PX.1).1 < card)
+                .map(|(_, hit)| (o, hit));
         }
-        let on_watch = !on_panel && beam.is_some();
+        on_watch = !on_panel && beam.is_some();
         watch.ui.global::<AppState>().set_cursor_visible(on_watch);
         if on_watch && down {
             panel_open = !panel_open;
@@ -295,6 +338,9 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 if let Err(e) = vr.place(ov_panel, &panel_in_front(h)) {
                     tracing::warn!("{e}");
                 }
+                // Fades in rather than flashing into view.
+                panel_alpha = if motion { 0.0 } else { 1.0 };
+                let _ = vr.set_alpha(ov_panel, panel_alpha);
             }
             let _ = vr.set_visible(ov_panel, panel_open);
             buzz.set(Some(Buzz::Press));
@@ -310,6 +356,11 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             }
             _ if laser_on => laser_on = vr.set_visible(ov_laser, false).is_err(),
             _ => {}
+        }
+
+        if panel_open && panel_alpha < 1.0 {
+            panel_alpha = (panel_alpha + dt / PANEL_FADE_S).min(1.0);
+            let _ = vr.set_alpha(ov_panel, panel_alpha);
         }
 
         if let (Some(inp), Some(b)) = (&input, buzz.take()) {
@@ -402,53 +453,64 @@ impl Textures {
     }
 }
 
-fn place_watch(
-    vr: &Vr,
-    ov: u64,
-    look: &mut Look,
-    wrist: Option<u32>,
-    wrist_pose: Option<&Mat>,
-    head: Option<&Mat>,
-    full: bool,
-) {
-    // Re-attach when SteamVR hands the role to another device (controller swap, restart).
-    if wrist != look.attached_to {
-        look.attached_to = wrist;
-        if let Some(i) = wrist
-            && let Err(e) = vr.attach(ov, i, &WATCH_OFFSET)
+/// The watch's controller: which hand, its device and its raw and tip poses this frame.
+struct Wrist<'a> {
+    hand: Hand,
+    device: Option<u32>,
+    raw: Option<&'a Mat>,
+    tip: Option<&'a Mat>,
+}
+
+fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Mat>, full: bool, dt: f32) {
+    let aspect = WATCH_PX.1 as f32 / WATCH_PX.0 as f32;
+    // The overlay rides on the device (no lag); the watch is placed from the tip pose, so the
+    // offset is the tip in the device's frame. It is the same every frame for one controller model;
+    // re-attach when SteamVR hands the role to another device or the model changes.
+    let offset = match (wrist.raw, wrist.tip) {
+        (Some(raw), Some(tip)) => Some(compose(&inverse(raw), tip)),
+        _ => None,
+    };
+    let moved = match (offset, look.tip_offset) {
+        (Some(a), Some(b)) => distance(position(&a), position(&b)) > 0.005,
+        (a, b) => a.is_some() != b.is_some(),
+    };
+    if wrist.device != look.attached_to || look.hand != Some(wrist.hand) || moved {
+        look.attached_to = wrist.device;
+        look.hand = Some(wrist.hand);
+        look.tip_offset = offset;
+        let identity = Mat {
+            m: [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+        };
+        let m = compose(&offset.unwrap_or(identity), &watch_offset(wrist.hand, aspect));
+        if let Some(i) = wrist.device
+            && let Err(e) = vr.attach(ov, i, &m)
         {
             tracing::warn!("{e}");
         }
     }
-    let state = match (wrist_pose, head) {
-        (Some(w), Some(h)) => watch_look(w, h),
-        _ => WatchLook::Hidden,
-    };
-    let alpha = match state {
-        // Celebrating: full brightness wherever the wrist points.
+    // As on DesktopVR: the watch fades with the turn of the wrist and the look of the eyes, and
+    // hides when the controller is at the face.
+    let target = match (wrist.tip, head) {
         _ if full => 1.0,
-        WatchLook::Hidden => 0.0,
-        WatchLook::Facing => {
-            let since = *look.facing_since.get_or_insert_with(Instant::now);
-            if since.elapsed() >= GLANCE_HOLD {
-                1.0
-            } else {
-                ALPHA_AWAY
-            }
+        (Some(t), Some(h)) if near_face(t, h) => 0.0,
+        (Some(t), Some(h)) => {
+            let w = compose(t, &watch_offset(wrist.hand, aspect));
+            ALPHA_AWAY + (1.0 - ALPHA_AWAY) * gaze_visibility(h, &w)
         }
-        WatchLook::Away => ALPHA_AWAY,
+        _ => 0.0,
     };
-    if state != WatchLook::Facing {
-        look.facing_since = None;
+    look.alpha += (target - look.alpha) * (dt / WATCH_FADE_S).min(1.0);
+    if (target - look.alpha).abs() < 0.01 {
+        look.alpha = target;
     }
-    let visible = alpha > 0.0;
+    let visible = look.alpha > 0.0;
     if visible != look.visible {
         look.visible = visible;
         let _ = vr.set_visible(ov, visible);
     }
-    if (alpha - look.alpha).abs() > f32::EPSILON {
-        look.alpha = alpha;
-        let _ = vr.set_alpha(ov, alpha);
+    if (look.alpha - look.shown_alpha).abs() > 0.004 {
+        look.shown_alpha = look.alpha;
+        let _ = vr.set_alpha(ov, look.alpha);
     }
 }
 

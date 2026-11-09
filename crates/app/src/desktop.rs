@@ -29,6 +29,8 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let ui = DesktopWindow::new()?;
     // Desk distance: denser type and controls than the VR panel, from the same tokens.
     ui.global::<Mode>().set_desktop(true);
+    ui.global::<Mode>()
+        .set_reduce_motion(!crate::motion::animations_enabled());
     let queue = Queue::default();
     wire(&ui.global::<AppState>(), &queue);
     app.borrow().show(&ui.global::<AppState>(), now_unix());

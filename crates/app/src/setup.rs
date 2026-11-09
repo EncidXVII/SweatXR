@@ -9,6 +9,9 @@ pub const APP_KEY: &str = "local.fitnessvr.overlay";
 pub const ACTION_SET: &str = "/actions/main";
 pub const ACTION_SELECT: &str = "/actions/main/in/select";
 pub const ACTION_HAPTIC: &str = "/actions/main/out/haptic";
+/// The controller's tip pose: the same point and axes on every controller model (DesktopVR uses it too), so the
+/// watch sits and turns the same way on Index, Touch and Vive wands. The raw device pose differs per model.
+pub const ACTION_POINTER: &str = "/actions/main/in/pointer";
 /// Default bindings: trigger click selects, both hands. Players rebind in SteamVR's binding UI.
 const CONTROLLERS: [&str; 4] = ["knuckles", "oculus_touch", "vive_controller", "generic"];
 
@@ -90,11 +93,13 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
             .collect();
         let haptics: Vec<_> =
             hands.iter().map(|h| serde_json::json!({ "output": ACTION_HAPTIC, "path": format!("/user/hand/{h}/output/haptic") })).collect();
+        let poses: Vec<_> =
+            hands.iter().map(|h| serde_json::json!({ "output": ACTION_POINTER, "path": format!("/user/hand/{h}/pose/tip") })).collect();
         write_json(
             &dir.join(format!("bindings_{c}.json")),
             &serde_json::json!({
                 "controller_type": c, "name": "FitnessVR defaults", "description": "Trigger selects on the watch and panel.",
-                "bindings": { ACTION_SET: { "sources": sources, "haptics": haptics } }
+                "bindings": { ACTION_SET: { "sources": sources, "haptics": haptics, "poses": poses } }
             }),
         )?;
     }
@@ -102,10 +107,14 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
     write_json(
         &path,
         &serde_json::json!({
-            "actions": [{ "name": ACTION_SELECT, "type": "boolean" }, { "name": ACTION_HAPTIC, "type": "vibration" }],
+            "actions": [
+                { "name": ACTION_SELECT, "type": "boolean" },
+                { "name": ACTION_POINTER, "type": "pose" },
+                { "name": ACTION_HAPTIC, "type": "vibration" }
+            ],
             "action_sets": [{ "name": ACTION_SET, "usage": "leftright" }],
             "default_bindings": CONTROLLERS.iter().map(|c| serde_json::json!({ "controller_type": c, "binding_url": format!("bindings_{c}.json") })).collect::<Vec<_>>(),
-            "localization": [{ "language_tag": "en_US", ACTION_SET: "FitnessVR", ACTION_SELECT: "Select on watch and panel", ACTION_HAPTIC: "Haptic tick" }]
+            "localization": [{ "language_tag": "en_US", ACTION_SET: "FitnessVR", ACTION_SELECT: "Select on watch and panel", ACTION_POINTER: "Pointer", ACTION_HAPTIC: "Haptic tick" }]
         }),
     )?;
     Ok(path)

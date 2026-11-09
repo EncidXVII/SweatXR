@@ -1,6 +1,20 @@
-// Shared components. Colours, type and spacing come only from Tokens.
+// Shared components. Colours and type come only from Tokens; geometry follows the DesktopVR menu.
+//
+// Motion (all off when Mode.reduce-motion, which follows the OS "animation effects" setting):
+// - presses answer on trigger-down (pressed colour at once) and ease back over motion-fast;
+// - hover colours ease over motion-fast;
+// - things that travel (segment highlight, switch knob, watch card) use an expo-out curve, so they
+//   start fast and settle without bounce;
+// - values that fill (ring, bars) take motion-fill so a change is seen, not missed.
 import { Tokens, Mode } from "@tokens";
 import { AppState, Feedback, GameRow, Bar } from "state.slint";
+
+export global Motion {
+    out property <duration> fast: Mode.reduce-motion ? 0ms : Tokens.motion-fast;
+    out property <duration> fade: Mode.reduce-motion ? 0ms : Tokens.motion-fade;
+    out property <duration> slow: Mode.reduce-motion ? 0ms : Tokens.motion-slow;
+    out property <duration> fill: Mode.reduce-motion ? 0ms : Tokens.motion-fill;
+}
 
 export component Hit inherits TouchArea {
     mouse-cursor: pointer;
@@ -30,10 +44,12 @@ export component Body inherits Text {
     vertical-alignment: center;
 }
 
+// Page heading: Anton, upper case (callers pass upper-case text).
 export component Title inherits Text {
     color: Tokens.ink;
     font-size: Tokens.type-title;
     font-family: Tokens.font-display;
+    vertical-alignment: center;
 }
 
 export component Big inherits Text {
@@ -42,24 +58,85 @@ export component Big inherits Text {
     font-family: Tokens.font-display;
 }
 
+// Line icon on a 24-unit grid, drawn like the DesktopVR glyphs.
+export component Icon inherits Path {
+    in property <string> d;
+    in property <brush> color: Tokens.ink;
+    width: 26px;
+    height: 26px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    commands: root.d;
+    fill: transparent;
+    stroke: root.color;
+    stroke-width: 2.2px;
+    stroke-line-cap: round;
+}
+
+export global Icons {
+    out property <string> today: "M12 20s-8-5-8-11a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 6-8 11-8 11z";
+    out property <string> week: "M5 20V12M10 20V6M15 20v-9M20 20V4";
+    out property <string> you: "M8 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M4 21c1-4 4-6 8-6s7 2 8 6";
+    out property <string> strap: "M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 2-7 2 1 3 3 3 5 1-2 1-6 1-9z";
+    out property <string> setup: "M4 7h10M18 7h2M4 17h4M12 17h8M14 7a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M8 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0";
+    out property <string> sessions: "M4 6h16M4 12h16M4 18h10";
+    out property <string> close: "M6 6l12 12M18 6L6 18";
+    out property <string> prev: "M15 6l-6 6 6 6";
+    out property <string> next: "M9 6l6 6-6 6";
+    out property <string> minus: "M6 12h12";
+    out property <string> plus: "M12 6v12M6 12h12";
+    out property <string> arrow: "M5 12h14M13 6l6 6-6 6";
+    out property <string> down: "M12 3v10M8 9l4 4 4-4M5 21h14";
+    out property <string> warn: "M12 3l10 18H2zM12 10v5M12 18v1";
+}
+
+// Filled button. kind: 0 quiet (line fill), 1 primary (lime), 2 danger outline, 3 danger filled.
 export component Button inherits Rectangle {
     in property <string> text;
-    in property <bool> primary;
-    in property <bool> danger;
+    in property <int> kind;
     in property <bool> enabled: true;
-    in property <length> label-size: Tokens.type-small;
+    in property <string> icon;
+    in property <length> tall: Mode.desktop ? 40px : 52px;
     callback clicked();
-    min-height: Tokens.size-control;
-    min-width: max(Tokens.size-control, label.preferred-width + 2 * Tokens.space-5);
+    height: root.tall;
+    min-width: row.preferred-width;
     horizontal-stretch: 0;
-    background: !root.enabled ? transparent : root.danger ? Tokens.danger : hit.pressed || root.primary ? Tokens.accent : hit.has-hover ? Tokens.raised : Tokens.surface;
-    border-width: root.primary || root.danger ? 0px : 1px;
-    border-color: root.enabled && hit.has-hover ? Tokens.accent : Tokens.edge;
-    label := Text {
-        text: root.text;
-        color: !root.enabled ? Tokens.ink3 : root.danger || hit.pressed || root.primary ? Tokens.on-accent : Tokens.ink;
-        font-size: root.label-size;
-        font-family: Tokens.font-body;
+    border-radius: Mode.desktop ? Tokens.radius-control : 14px;
+    property <bool> down: hit.pressed && root.enabled;
+    background: !root.enabled ? Tokens.raised
+        : root.kind == 1 ? (root.down ? Tokens.accent-pressed : Tokens.accent)
+        : root.kind == 3 ? Tokens.danger
+        : root.kind == 2 ? (root.down ? Tokens.danger-bg : hit.has-hover ? Tokens.danger-bg : transparent)
+        : root.down ? Tokens.dim : hit.has-hover ? Tokens.pressed : Tokens.line;
+    animate background {
+        duration: root.down ? 0ms : Motion.fast;
+        easing: ease-out;
+    }
+    border-width: root.kind == 2 ? 2px : 0px;
+    border-color: Tokens.danger;
+    opacity: root.kind == 3 && root.down ? 0.85 : 1;
+    row := HorizontalLayout {
+        padding-left: Mode.desktop ? Tokens.space-4 : Tokens.space-5;
+        padding-right: self.padding-left;
+        spacing: Tokens.space-2;
+        alignment: center;
+        if root.icon != "": VerticalLayout {
+            alignment: center;
+            Icon {
+                d: root.icon;
+                width: Mode.desktop ? 18px : 24px;
+                height: self.width;
+                color: label.color;
+            }
+        }
+        label := Text {
+            text: root.text;
+            vertical-alignment: center;
+            font-size: Tokens.type-label;
+            font-family: Tokens.font-body;
+            font-weight: root.kind == 1 || root.kind == 3 ? 600 : 400;
+            color: !root.enabled ? Tokens.ink3 : root.kind == 1 || root.kind == 3 ? Tokens.on-accent : root.kind == 2 ? Tokens.danger : Tokens.ink;
+        }
     }
     hit := Hit {
         enabled: root.enabled;
@@ -69,24 +146,113 @@ export component Button inherits Rectangle {
     }
 }
 
-export component Segmented inherits HorizontalLayout {
+// Square icon button (previous / next, close).
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <bool> enabled: true;
+    in property <brush> fill: Tokens.raised;
+    callback clicked();
+    width: Mode.desktop ? 40px : 52px;
+    height: self.width;
+    border-radius: Mode.desktop ? Tokens.radius-control : 14px;
+    property <bool> down: hit.pressed && root.enabled;
+    background: root.down ? Tokens.pressed : hit.has-hover && root.enabled ? Tokens.line : root.fill;
+    animate background {
+        duration: root.down ? 0ms : Motion.fast;
+        easing: ease-out;
+    }
+    Icon {
+        d: root.icon;
+        width: Mode.desktop ? 20px : 24px;
+        height: self.width;
+        stroke-width: 2.6px;
+        color: root.enabled ? Tokens.ink : Tokens.dim;
+    }
+    hit := Hit {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// On / off. The knob slides; the track turns lime when on.
+export component Switch inherits Rectangle {
+    in property <bool> on;
+    in property <bool> hover;
+    property <length> pad: Mode.desktop ? 3px : 4px;
+    width: Mode.desktop ? 44px : 58px;
+    height: Mode.desktop ? 26px : 34px;
+    border-radius: self.height / 2;
+    background: root.on ? Tokens.accent : root.hover ? Tokens.dim : Tokens.line;
+    animate background {
+        duration: Motion.fast;
+        easing: ease-out;
+    }
+    Rectangle {
+        width: root.height - 2 * root.pad;
+        height: self.width;
+        y: root.pad;
+        x: root.on ? root.width - self.width - root.pad : root.pad;
+        border-radius: self.width / 2;
+        background: root.on ? Tokens.on-accent : Tokens.ink3;
+        animate x {
+            duration: Motion.fast;
+            easing: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        animate background {
+            duration: Motion.fast;
+            easing: ease-out;
+        }
+    }
+}
+
+// Two or three equal cells; the chosen one is ink and slides to the new choice.
+export component Segmented inherits Rectangle {
     in property <[string]> options;
     in property <int> selected;
+    in property <length> cell: Mode.desktop ? 80px : 116px;
+    in property <brush> track: Tokens.line;
     callback picked(int);
-    horizontal-stretch: 0;
+    property <length> pad: Mode.desktop ? 3px : 4px;
+    width: 2 * self.pad + self.cell * root.options.length;
+    height: Tokens.size-segment + 2 * self.pad;
+    border-radius: Mode.desktop ? Tokens.radius-control : 14px;
+    background: root.track;
+    Rectangle {
+        x: root.pad + root.selected * root.cell;
+        y: root.pad;
+        width: root.cell;
+        height: Tokens.size-segment;
+        border-radius: Tokens.radius-small;
+        background: Tokens.ink;
+        animate x {
+            duration: Motion.slow;
+            easing: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+    }
     for option[i] in root.options: Rectangle {
-        // Equal cells when a row gives the control a fixed width.
-        horizontal-stretch: 1;
-        min-height: Tokens.size-control;
-        min-width: t.preferred-width + 2 * Tokens.space-5;
-        background: i == root.selected ? Tokens.accent : h.has-hover ? Tokens.raised : Tokens.surface;
-        border-width: 1px;
-        border-color: i == root.selected ? Tokens.accent : Tokens.edge;
-        t := Text {
+        x: root.pad + i * root.cell;
+        y: root.pad;
+        width: root.cell;
+        height: Tokens.size-segment;
+        border-radius: Tokens.radius-small;
+        property <bool> on: i == root.selected;
+        background: self.on ? transparent : h.pressed ? Tokens.dim : h.has-hover ? Tokens.pressed : transparent;
+        animate background {
+            duration: h.pressed ? 0ms : Motion.fast;
+            easing: ease-out;
+        }
+        Text {
             text: option;
-            color: i == root.selected ? Tokens.on-accent : Tokens.ink;
-            font-size: Tokens.type-small;
+            color: parent.on ? Tokens.on-accent : Tokens.ink2;
+            font-size: Tokens.type-label;
             font-family: Tokens.font-body;
+            font-weight: parent.on ? 600 : 400;
+            animate color {
+                duration: Motion.fast;
+                easing: ease-out;
+            }
         }
         h := Hit {
             clicked => {
@@ -96,113 +262,230 @@ export component Segmented inherits HorizontalLayout {
     }
 }
 
-export component TabBar inherits HorizontalLayout {
-    in property <[string]> tabs;
-    in-out property <int> selected;
-    spacing: Tokens.space-6;
+// − value + as in the DesktopVR menu.
+export component Steps inherits Rectangle {
+    in property <string> value;
+    callback minus();
+    callback plus();
+    property <length> value-w: Mode.desktop ? 72px : 104px;
+    width: 2 * Tokens.size-step + self.value-w + 2 * Tokens.space-1;
+    height: Tokens.size-step;
     horizontal-stretch: 0;
-    for tab[i] in root.tabs: Rectangle {
-        min-height: Tokens.size-control;
-        min-width: label.preferred-width;
-        label := Text {
-            text: tab;
-            color: i == root.selected ? Tokens.ink : Tokens.ink2;
-            font-size: Tokens.type-body;
-            font-family: Tokens.font-body;
+    Text {
+        x: Tokens.size-step + Tokens.space-1;
+        width: root.value-w;
+        height: parent.height;
+        text: root.value;
+        color: Tokens.ink;
+        font-size: Tokens.type-body;
+        font-family: Tokens.font-body;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    for k in [0, 1]: Rectangle {
+        width: Tokens.size-step;
+        height: Tokens.size-step;
+        x: k == 0 ? 0px : root.width - self.width;
+        y: 0;
+        border-radius: Mode.desktop ? 10px : Tokens.radius-control;
+        background: h.pressed ? Tokens.dim : h.has-hover ? Tokens.pressed : Tokens.line;
+        animate background {
+            duration: h.pressed ? 0ms : Motion.fast;
+            easing: ease-out;
         }
-        Rectangle {
-            y: parent.height - self.height;
-            height: Tokens.space-1;
-            background: i == root.selected ? Tokens.accent : hit.has-hover ? Tokens.edge : transparent;
+        Icon {
+            d: k == 0 ? Icons.minus : Icons.plus;
+            width: Mode.desktop ? 18px : 24px;
+            height: self.width;
+            stroke-width: 2.4px;
         }
-        hit := Hit {
+        h := Hit {
             clicked => {
-                root.selected = i;
+                if k == 0 {
+                    root.minus();
+                } else {
+                    root.plus();
+                }
             }
         }
     }
 }
 
-// Width of the controls column in settings rows, so steppers and segments line up.
-export global Rows {
-    out property <length> control-width: 2 * Tokens.size-control + Tokens.size-control * 3 + 2 * Tokens.space-3;
+// A settings row: label on the left, its control on the right. Rows in a Group draw a hairline
+// between them (divider on every row but the first).
+export component Row inherits Rectangle {
+    in property <string> label;
+    in property <string> sub;
+    in property <bool> divider;
+    // Label in the quiet caption style (a reading's name rather than a setting).
+    in property <bool> quiet;
+    // Leading column (a clock time) before the label.
+    in property <string> lead;
+    // A row that is one control (a switch, a device) answers anywhere on it.
+    in property <bool> clickable;
+    out property <bool> hovered: row-hit.has-hover;
+    callback clicked();
+    min-height: Tokens.size-row;
+    background: root.clickable && row-hit.pressed ? Tokens.pressed : root.clickable && row-hit.has-hover ? Tokens.line : transparent;
+    animate background {
+        duration: row-hit.pressed ? 0ms : Motion.fast;
+        easing: ease-out;
+    }
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 1px;
+        background: Tokens.line;
+        visible: root.divider;
+    }
+    row-hit := Hit {
+        enabled: root.clickable;
+        clicked => {
+            root.clicked();
+        }
+    }
+    HorizontalLayout {
+        padding-left: Mode.desktop ? Tokens.space-5 : Tokens.space-4;
+        padding-right: self.padding-left;
+        padding-top: Tokens.space-1;
+        padding-bottom: Tokens.space-1;
+        spacing: Tokens.space-3;
+        if root.lead != "": Caption {
+            text: root.lead;
+            font-size: Tokens.type-body;
+            width: 128px;
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Body {
+                text: root.label;
+                overflow: elide;
+                color: root.quiet ? Tokens.ink2 : Tokens.ink;
+                font-size: root.quiet ? Tokens.type-small : Tokens.type-body;
+            }
+            if root.sub != "": Caption {
+                text: root.sub;
+                overflow: elide;
+            }
+        }
+        @children
+    }
 }
 
-export component StepRow inherits HorizontalLayout {
-    in property <string> label;
+export component StepRow inherits Row {
     in property <string> value;
     callback minus();
     callback plus();
-    spacing: Tokens.space-3;
-    Body {
-        text: root.label;
-        horizontal-stretch: 1;
-    }
-    Button {
-        text: "-";
-        label-size: Tokens.type-heading;
-        width: Tokens.size-control;
-        clicked => {
-            root.minus();
-        }
-    }
-    Body {
-        text: root.value;
-        width: Tokens.size-control * 3;
-        horizontal-alignment: center;
-    }
-    Button {
-        text: "+";
-        label-size: Tokens.type-heading;
-        width: Tokens.size-control;
-        clicked => {
-            root.plus();
+    VerticalLayout {
+        alignment: center;
+        Steps {
+            value: root.value;
+            minus => {
+                root.minus();
+            }
+            plus => {
+                root.plus();
+            }
         }
     }
 }
 
-export component ChoiceRow inherits HorizontalLayout {
-    in property <string> label;
+export component ChoiceRow inherits Row {
     in property <[string]> options;
     in property <int> selected;
+    in property <length> cell: Mode.desktop ? 80px : 116px;
     callback picked(int);
-    spacing: Tokens.space-3;
-    Body {
-        text: root.label;
-        horizontal-stretch: 1;
-    }
-    Segmented {
-        width: Rows.control-width;
-        options: root.options;
-        selected: root.selected;
-        picked(i) => {
-            root.picked(i);
+    VerticalLayout {
+        alignment: center;
+        Segmented {
+            options: root.options;
+            selected: root.selected;
+            cell: root.cell;
+            picked(i) => {
+                root.picked(i);
+            }
         }
     }
 }
 
-// Goal ring: track plus an arc from 12 o'clock, clockwise. Eases to new values.
+// The whole row toggles the switch.
+export component SwitchRow inherits Row {
+    in property <bool> on;
+    clickable: true;
+    VerticalLayout {
+        alignment: center;
+        Switch {
+            on: root.on;
+            hover: root.hovered;
+        }
+    }
+}
+
+// Rounded card that holds rows.
+export component Group inherits Rectangle {
+    in property <brush> fill: Tokens.raised;
+    border-radius: Tokens.radius-group;
+    background: root.fill;
+    clip: true;
+    VerticalLayout {
+        @children
+    }
+}
+
+// Lime fill on a dark track, eased to new values.
+export component Meter inherits Rectangle {
+    in property <float> value;
+    height: 6px;
+    border-radius: self.height / 2;
+    background: Tokens.line;
+    clip: true;
+    property <float> v: max(0, min(1, root.value));
+    animate v {
+        duration: Motion.slow;
+        easing: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    Rectangle {
+        x: 0;
+        width: max(root.height, parent.width * root.v);
+        height: parent.height;
+        border-radius: parent.border-radius;
+        background: Tokens.accent;
+        visible: root.v > 0.001;
+    }
+}
+
+// Goal ring: track plus an arc from 12 o'clock, clockwise, with round ends. Closes into a lime
+// ring at the goal. Fills over motion-fill so a new number is seen arriving.
 export component Ring inherits Rectangle {
     in property <float> progress;
-    in property <length> thickness: Tokens.space-5;
+    in property <length> thickness: 14px;
+    property <bool> done: root.progress >= 1;
     property <float> p: min(max(root.progress, 0), 0.9999);
     animate p {
-        duration: Mode.reduce-motion ? 0ms : Tokens.motion-slow;
-        easing: ease-out;
+        duration: Motion.fill;
+        easing: cubic-bezier(0.23, 1, 0.32, 1);
     }
     property <float> r: 50 - root.thickness / root.width * 50;
     Rectangle {
         border-radius: self.width / 2;
         border-width: root.thickness;
-        border-color: root.progress >= 1 ? Tokens.accent : Tokens.raised;
+        border-color: root.done ? Tokens.accent : Tokens.line;
+        animate border-color {
+            duration: Motion.fade;
+            easing: ease-out;
+        }
     }
-    if root.progress > 0.005 && root.progress < 1: Path {
+    if !root.done && root.p > 0.005: Path {
         width: 100%;
         height: 100%;
         viewbox-width: 100;
         viewbox-height: 100;
+        fill: transparent;
         stroke: Tokens.accent;
         stroke-width: root.thickness;
+        stroke-line-cap: round;
         MoveTo {
             x: 50;
             y: 50 - root.r;
@@ -218,106 +501,110 @@ export component Ring inherits Rectangle {
     }
 }
 
-export component Stat inherits VerticalLayout {
-    in property <string> value;
-    in property <string> label;
-    in property <bool> live;
-    spacing: Tokens.space-1;
-    Text {
-        text: root.value;
-        color: root.live ? Tokens.accent : Tokens.ink;
-        font-size: Tokens.type-heading;
-        font-family: Tokens.font-display;
-    }
-    Caption {
-        text: root.label;
-    }
-}
-
-export component GameRowView inherits VerticalLayout {
+export component GameRowView inherits Rectangle {
     in property <GameRow> game;
-    // Rows keep their height; spare space goes to the chart, not between name and bar.
+    in property <bool> divider;
     vertical-stretch: 0;
-    spacing: Tokens.space-2;
-    HorizontalLayout {
-        spacing: Tokens.space-4;
-        Body {
-            text: root.game.name;
-            horizontal-stretch: 1;
-            overflow: elide;
-        }
-        Caption {
-            text: root.game.minutes;
-        }
-        Body {
-            text: root.game.kcal;
-            min-width: Tokens.size-control * 2;
-            horizontal-alignment: right;
-        }
-    }
     Rectangle {
-        height: Tokens.space-1;
-        background: Tokens.raised;
-        Rectangle {
-            x: 0;
-            width: parent.width * root.game.share;
-            background: Tokens.accent;
-        }
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 1px;
+        background: Tokens.line;
+        visible: root.divider;
     }
-}
-
-export component BarChart inherits HorizontalLayout {
-    in property <[Bar]> bars;
-    spacing: Tokens.space-2;
-    for bar in root.bars: VerticalLayout {
-        horizontal-stretch: 1;
-        // Equal columns regardless of label width.
-        preferred-width: 0px;
+    VerticalLayout {
+        padding-left: Mode.desktop ? Tokens.space-5 : Tokens.space-4;
+        padding-right: self.padding-left;
+        padding-top: Tokens.space-3;
+        padding-bottom: Tokens.space-3;
         spacing: Tokens.space-2;
-        Caption {
-            text: bar.text;
-            horizontal-alignment: center;
-        }
-        Rectangle {
-            vertical-stretch: 1;
-            Rectangle {
-                y: parent.height - self.height;
-                height: max(Tokens.space-1, parent.height * bar.value);
-                background: bar.met ? Tokens.accent : Tokens.edge;
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            Body {
+                text: root.game.name;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            if Mode.desktop: Caption {
+                text: root.game.minutes;
+                font-size: Tokens.type-body;
+            }
+            Text {
+                text: root.game.kcal;
+                color: Tokens.ink;
+                font-size: Mode.desktop ? Tokens.type-body : Tokens.type-small;
+                font-family: Tokens.font-body;
+                vertical-alignment: center;
+                horizontal-alignment: right;
             }
         }
-        Caption {
-            text: bar.label;
-            horizontal-alignment: center;
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            VerticalLayout {
+                alignment: center;
+                Meter {
+                    value: root.game.share;
+                }
+            }
+            if !Mode.desktop: Caption {
+                text: root.game.minutes;
+            }
         }
     }
 }
 
-// Previous / next period with the period's name between.
-export component Stepper inherits HorizontalLayout {
-    in property <string> label;
-    in property <bool> has-next;
-    callback step(int);
-    spacing: Tokens.space-3;
-    horizontal-stretch: 0;
-    Button {
-        text: "←";
-        width: Tokens.size-control;
-        clicked => {
-            root.step(-1);
+// Day columns: the value over each bar, the day under it. Today is lime and named; days at the
+// goal are lime too, other days warm grey, empty days a flat stub. Bars grow to new values.
+export component BarChart inherits Rectangle {
+    in property <[Bar]> bars;
+    in property <length> gap: Tokens.space-3;
+    in property <bool> dense;
+    property <length> label-h: Mode.desktop ? 20px : 30px;
+    property <length> col-w: (self.width - (root.bars.length - 1) * root.gap) / max(1, root.bars.length);
+    property <length> chart: self.height - 2 * root.label-h - 2 * Tokens.space-2;
+    for bar[i] in root.bars: Rectangle {
+        x: i * (root.col-w + root.gap);
+        width: root.col-w;
+        property <float> v: bar.value;
+        animate v {
+            duration: Motion.slow;
+            easing: cubic-bezier(0.23, 1, 0.32, 1);
         }
-    }
-    Body {
-        text: root.label;
-        min-width: Tokens.size-control * 4;
-        horizontal-alignment: center;
-    }
-    Button {
-        text: "→";
-        width: Tokens.size-control;
-        enabled: root.has-next;
-        clicked => {
-            root.step(1);
+        property <bool> empty: bar.value < 0.005;
+        property <length> h: self.empty ? 4px : max(4px, root.chart * min(1, self.v));
+        Rectangle {
+            y: root.label-h + Tokens.space-2 + root.chart - parent.h;
+            height: parent.h;
+            border-radius: min(root.dense ? 4px : Mode.desktop ? 6px : 8px, self.width / 4);
+            background: parent.empty ? Tokens.line : bar.today || bar.met ? Tokens.accent : Tokens.dim;
+            opacity: bar.met && !bar.today ? 0.6 : 1;
+        }
+        Text {
+            y: root.label-h + Tokens.space-2 + root.chart - parent.h - Tokens.space-2 - self.height;
+            width: parent.width;
+            height: root.label-h;
+            text: bar.text;
+            horizontal-alignment: center;
+            vertical-alignment: bottom;
+            font-size: Tokens.type-small;
+            font-family: Tokens.font-body;
+            color: bar.today ? Tokens.accent : Tokens.ink2;
+            overflow: clip;
+        }
+        // Wider than a dense column, centred on it: a date label may spill over its neighbours,
+        // which are left blank for it.
+        Text {
+            y: root.height - root.label-h;
+            x: (parent.width - self.width) / 2;
+            width: max(parent.width, 96px);
+            height: root.label-h;
+            text: bar.label;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-size: Tokens.type-small;
+            font-family: Tokens.font-body;
+            color: bar.today ? Tokens.ink : Tokens.ink2;
         }
     }
 }
