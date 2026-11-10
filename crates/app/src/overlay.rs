@@ -17,9 +17,9 @@ use fitvr_ui::offscreen::{Pointer, Surface, install};
 use fitvr_ui::view::progress;
 use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use fitvr_vr::{
-    AppKind, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT,
-    ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance, gaze_visibility, inverse, laser, laser_texture,
-    near_face, panel_in_front, position, ray, uv_to_px, valid, watch_offset,
+    AppKind, Apps, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD, Handle, LASER_PX, Mat,
+    PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance, inverse, laser,
+    laser_texture, near_face, panel_in_front, position, ray, uv_to_px, valid, watch_offset,
 };
 use slint::ComponentHandle;
 
@@ -33,8 +33,10 @@ const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
 const CELEBRATE: Duration = Duration::from_secs(4);
 /// Watch brightness when not looked at: still there at a glance, never in the way.
 const ALPHA_AWAY: f32 = 0.35;
-/// The watch follows a glance this fast (DesktopVR's time constant); the panel fades in over this.
-const WATCH_FADE_S: f32 = 0.06;
+/// The watch brightens over this when looked at and dims over this after (linear, as DesktopVR);
+/// the panel fades in over `PANEL_FADE_S`.
+const WATCH_SHOW_S: f32 = 0.08;
+const WATCH_HIDE_S: f32 = 0.18;
 const PANEL_FADE_S: f32 = 0.16;
 const HOME_KEY: &str = "steamvr.home";
 const HOME_NAME: &str = "SteamVR Home";
@@ -96,6 +98,7 @@ struct Look {
     alpha: f32,
     shown_alpha: f32,
     visible: bool,
+    glance: Glance,
 }
 
 /// The controller's tip pose (same on every controller model), else its raw pose.
@@ -106,6 +109,15 @@ fn tip(vr: &Vr, input: Option<&Input>, h: Hand, raw: Option<&Mat>) -> Option<Mat
 }
 
 pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
+    // SteamVR starts the overlay with itself. Started any other way while SteamVR is off (Windows
+    // restoring apps at sign-in, a stale shortcut), it must not start SteamVR or wait in the
+    // background: it leaves.
+    if let Err(e) = Apps::init(AppKind::Background)
+        && e.code == ERR_NO_SERVER
+    {
+        tracing::info!("SteamVR is not running; the overlay starts with it");
+        return Ok(());
+    }
     let vr = Vr::init(AppKind::Overlay)?;
     tracing::info!("overlay {} started", env!("CARGO_PKG_VERSION"));
     let mut app = App::open(dirs, |p| {
@@ -495,14 +507,19 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
         (Some(t), Some(h)) if near_face(t, h) => 0.0,
         (Some(t), Some(h)) => {
             let w = compose(t, &watch_offset(wrist.hand, aspect));
-            ALPHA_AWAY + (1.0 - ALPHA_AWAY) * gaze_visibility(h, &w)
+            if look.glance.update(h, &w, dt) {
+                1.0
+            } else {
+                ALPHA_AWAY
+            }
         }
         _ => 0.0,
     };
-    look.alpha += (target - look.alpha) * (dt / WATCH_FADE_S).min(1.0);
-    if (target - look.alpha).abs() < 0.01 {
-        look.alpha = target;
-    }
+    look.alpha = if target > look.alpha {
+        (look.alpha + dt / WATCH_SHOW_S).min(target)
+    } else {
+        (look.alpha - dt / WATCH_HIDE_S).max(target)
+    };
     let visible = look.alpha > 0.0;
     if visible != look.visible {
         look.visible = visible;

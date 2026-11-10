@@ -24,8 +24,12 @@ All notable changes to this project are documented here. Format based on
 - The watch sat at a different angle on each controller model and read sideways when you raised
   your wrist. It now uses the controller's tip pose, like DesktopVR: text runs along the forearm,
   top away from you, on either hand. The laser starts from the tip too.
-- Glancing at the watch now fades it in smoothly with the turn of the wrist and the look of the
-  eyes (DesktopVR's rule), instead of jumping after a delay. It dims to 35 % when you look away.
+- Glancing at the watch brightens it, as on DesktopVR, at a wide angle (a look from the corner of
+  the eye is enough). Once bright it holds and needs a clear look away to dim, so it no longer
+  flickers at the edge. It dims to 35 % when you look away.
+- Closing the FitnessVR window quits it; it no longer keeps running unseen in the background.
+- The VR overlay never starts SteamVR itself: started any other way while SteamVR is off, it
+  leaves at once.
 - Pointing just below a short watch card no longer counts as pointing at the watch.
 - The strap dropping mid-session now says so on the watch; estimates continue from movement.
 

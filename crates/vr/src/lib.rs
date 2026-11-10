@@ -122,23 +122,40 @@ pub fn compose(a: &Mat, b: &Mat) -> Mat {
     mul(a, b)
 }
 
-fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+/// Whether the watch is looked at, as on DesktopVR: its face turned toward the eyes and the eyes
+/// on it. Wide to show (a glance from the corner of the eye is enough), wider still to stay, and
+/// held for at least `GLANCE_HOLD_S`, so hand tremor and head bob at the edge never make it blink.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Glance {
+    shown: bool,
+    held_s: f32,
 }
 
-/// How visible the watch should be (0..1), as on DesktopVR: its face turned toward the eyes and
-/// the head looking at it. Smooth, so the watch fades in and out with the turn of the wrist.
-pub fn gaze_visibility(head: &Mat, watch: &Mat) -> f32 {
-    let to_eye = sub(position(head), position(watch));
-    if dot(to_eye, to_eye) < 1e-8 {
-        return 1.0;
+/// Shows when the face is within about 66 degrees of the eyes and the watch within 45 degrees of
+/// where the head looks; stays until those pass about 81 and 63 degrees.
+const GLANCE_SHOW: (f32, f32) = (0.4, 0.7);
+const GLANCE_KEEP: (f32, f32) = (0.15, 0.45);
+const GLANCE_HOLD_S: f32 = 0.3;
+
+impl Glance {
+    /// Steps by `dt` seconds; true while the watch is looked at.
+    pub fn update(&mut self, head: &Mat, watch: &Mat, dt: f32) -> bool {
+        let to_eye = sub(position(head), position(watch));
+        let (facing, looking) = if dot(to_eye, to_eye) < 1e-8 {
+            (1.0, 1.0)
+        } else {
+            let to_eye = norm(to_eye);
+            (dot(axis(watch, 2), to_eye), dot(axis(head, 2), to_eye))
+        };
+        self.held_s += dt;
+        let (f, l) = if self.shown { GLANCE_KEEP } else { GLANCE_SHOW };
+        let want = facing > f && looking > l;
+        if want != self.shown && (want || self.held_s >= GLANCE_HOLD_S) {
+            self.shown = want;
+            self.held_s = 0.0;
+        }
+        self.shown
     }
-    let to_eye = norm(to_eye);
-    let facing = dot(axis(watch, 2), to_eye);
-    let back = axis(head, 2);
-    let looking = dot(back, to_eye);
-    smoothstep(0.55, 0.7, facing) * smoothstep(0.8, 0.9, looking)
 }
 
 /// The controller is at the face: the watch hides.
@@ -319,14 +336,18 @@ mod tests {
                 ],
             }
         };
+        let mut g = Glance::default();
         assert!(
-            gaze_visibility(&head_at(position(&watch)), &watch) > 0.9,
-            "looking at the face"
-        );
-        assert!(
-            gaze_visibility(&head_at([0.0, 1.6, -2.0]), &watch) < 0.01,
+            !g.update(&head_at([0.0, 1.6, -2.0]), &watch, 0.016),
             "looking ahead"
         );
+        assert!(
+            g.update(&head_at(position(&watch)), &watch, 0.016),
+            "looking at the face"
+        );
+        let away = head_at([0.0, 2.6, -1.0]);
+        assert!(g.update(&away, &watch, 0.1), "held, never a blink");
+        assert!(!g.update(&away, &watch, 0.3), "then gone");
         let palm_up = compose(
             &pointing(watch_at, [1.0, 0.0, 0.0]),
             &Mat {
@@ -335,7 +356,7 @@ mod tests {
         );
         let turned = compose(&palm_up, &watch_offset(Hand::Left, 0.58));
         assert!(
-            gaze_visibility(&head_at(position(&turned)), &turned) < 0.01,
+            !Glance::default().update(&head_at(position(&turned)), &turned, 0.016),
             "face turned away"
         );
         assert!(near_face(&at([0.0, 1.65, -0.05]), &at(eye)));

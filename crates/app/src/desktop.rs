@@ -46,11 +46,13 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let tray = crate::tray::Tray::new()
         .map_err(|e| tracing::warn!("tray: {e}"))
         .ok();
-    #[cfg(windows)]
-    if tray.is_some() {
-        // With a tray icon, closing the window keeps tracking history reachable from the tray.
-        ui.window()
-            .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+    // Closing the window quits: tracking runs in the VR overlay, not here, so nothing is lost, and
+    // no FitnessVR is left running unseen (the event loop would otherwise outlive the window).
+    {
+        ui.window().on_close_requested(|| {
+            let _ = slint::quit_event_loop();
+            slint::CloseRequestResponse::HideWindow
+        });
     }
 
     let timer = Timer::default();
