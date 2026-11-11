@@ -107,6 +107,39 @@ export component AutoStartRow inherits SwitchRow {
     }
 }
 
+// Accent colour: one dot per theme, the chosen one ringed and named under the label.
+export component ThemeRow inherits Row {
+    label: "Theme";
+    sub: Tokens.theme-names[AppState.profile.theme];
+    property <length> dot: Mode.desktop ? 16px : 36px;
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            spacing: Mode.desktop ? 4px : 10px;
+            for c[i] in Tokens.themes: Rectangle {
+                property <bool> chosen: i == AppState.profile.theme;
+                width: root.dot + (Mode.desktop ? 8px : 10px);
+                height: self.width;
+                border-radius: self.width / 2;
+                border-width: self.chosen || h.has-hover ? 2px : 0px;
+                border-color: self.chosen ? Tokens.ink : Tokens.dim;
+                Rectangle {
+                    width: root.dot;
+                    height: root.dot;
+                    border-radius: root.dot / 2;
+                    background: c;
+                }
+                h := Hit {
+                    clicked => {
+                        AppState.profile.theme = i;
+                        AppState.profile-changed(AppState.profile);
+                    }
+                }
+            }
+        }
+    }
+}
+
 // Heading row of a VR page: the page name, a quiet hint on the right.
 component Head inherits HorizontalLayout {
     in property <string> title;
@@ -412,6 +445,9 @@ export component PanelSetup inherits VerticalLayout {
             divider: true;
         }
         AutoStartRow {
+            divider: true;
+        }
+        ThemeRow {
             divider: true;
         }
     }
@@ -979,6 +1015,12 @@ export component DeskSettings inherits VerticalLayout {
                 UnitsRow {
                     divider: true;
                 }
+            }
+            Caption {
+                text: "Look";
+            }
+            Group {
+                ThemeRow { }
             }
         }
         VerticalLayout {

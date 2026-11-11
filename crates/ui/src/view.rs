@@ -441,6 +441,7 @@ pub fn profile_data(p: &Profile) -> ProfileData {
         right_hand: p.watch_hand == Hand::Right,
         imperial: p.units == Units::Imperial,
         auto_start: p.auto_start,
+        theme: i32::from(p.theme),
     }
 }
 
@@ -460,6 +461,7 @@ pub fn apply_profile(d: &ProfileData, p: &Profile) -> Profile {
             Units::Metric
         },
         auto_start: d.auto_start,
+        theme: d.theme.clamp(0, 255) as u8,
         ..p.clone()
     }
     .clamped()

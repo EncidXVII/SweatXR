@@ -19,6 +19,9 @@ pub enum Units {
     Imperial,
 }
 
+/// Number of accent themes (design-tokens.json "themes").
+pub const THEMES: u8 = 8;
+
 /// Per-user motion intensity -> kcal/min line, fitted while a heart rate strap was worn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Calibration {
@@ -42,6 +45,8 @@ pub struct Profile {
     pub onboarded: bool,
     /// The player has opened the VR panel at least once, so the watch stops teaching the gesture.
     pub panel_seen: bool,
+    /// Accent colour, an index into design-tokens.json "themes" (0 = Lime).
+    pub theme: u8,
 }
 
 impl Default for Profile {
@@ -60,6 +65,7 @@ impl Default for Profile {
             calibration: None,
             onboarded: false,
             panel_seen: false,
+            theme: 0,
         }
     }
 }
@@ -72,6 +78,7 @@ impl Profile {
         self.age = self.age.clamp(13, 99);
         self.goal_kcal = self.goal_kcal.clamp(50, 3000);
         self.resting_hr = self.resting_hr.clamp(35, 110);
+        self.theme = self.theme.min(THEMES - 1);
         self
     }
 }

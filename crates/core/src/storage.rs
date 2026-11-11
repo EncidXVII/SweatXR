@@ -34,6 +34,7 @@ const MIGRATIONS: &[&str] = &[
     "CREATE INDEX samples_session ON samples (session_id);
      CREATE INDEX sessions_start ON sessions (start);",
     "ALTER TABLE profile ADD COLUMN panel_seen INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE profile ADD COLUMN theme INTEGER NOT NULL DEFAULT 0;",
 ];
 
 #[derive(Clone, Debug, PartialEq)]
@@ -107,7 +108,7 @@ impl Store {
     pub fn profile(&self) -> Result<Profile> {
         let row = self
             .conn
-            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded, panel_seen FROM profile WHERE id = 1", [], |r| {
+            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded, panel_seen, theme FROM profile WHERE id = 1", [], |r| {
                 let cal = match (r.get::<_, Option<f32>>(10)?, r.get::<_, Option<f32>>(11)?) {
                     (Some(slope), Some(intercept)) => Some(Calibration { slope, intercept }),
                     _ => None,
@@ -126,6 +127,7 @@ impl Store {
                     calibration: cal,
                     onboarded: r.get(12)?,
                     panel_seen: r.get(13)?,
+                    theme: r.get(14)?,
                 })
             })
             .optional()?;
@@ -134,7 +136,7 @@ impl Store {
 
     pub fn save_profile(&self, p: &Profile) -> Result<()> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 p.weight_kg,
                 p.height_cm,
@@ -150,6 +152,7 @@ impl Store {
                 p.calibration.map(|c| c.intercept),
                 p.onboarded,
                 p.panel_seen,
+                p.theme,
             ],
         )?;
         Ok(())
@@ -459,6 +462,7 @@ mod tests {
                 intercept: 1.0,
             }),
             onboarded: true,
+            theme: 3,
             ..Profile::default()
         };
         store.save_profile(&p).expect("save");

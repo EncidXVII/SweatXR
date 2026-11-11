@@ -45,6 +45,35 @@ fn token_pairs_meet_wcag_aa() {
 }
 
 #[test]
+fn every_theme_accent_works_where_lime_does() {
+    let t = tokens();
+    let color = |k: &str| t["color"][k].as_str().expect("color").to_owned();
+    let themes = t["themes"].as_array().expect("themes");
+    assert_eq!(themes.len(), usize::from(fitvr_core::profile::THEMES));
+    assert_eq!(
+        themes[0]["accent"], t["color"]["accent"],
+        "the first theme is the default accent"
+    );
+    for theme in themes {
+        let (accent, pressed) = (
+            theme["accent"].as_str().expect("accent"),
+            theme["pressed"].as_str().expect("pressed"),
+        );
+        let name = &theme["name"];
+        for (fg, bg, min) in [
+            (color("on_accent"), accent.to_owned(), 4.5),
+            (color("on_accent"), pressed.to_owned(), 4.5),
+            (accent.to_owned(), color("bg"), 4.5),
+            (accent.to_owned(), color("surface"), 3.0),
+            (accent.to_owned(), color("raised"), 3.0),
+        ] {
+            let c = contrast(&fg, &bg);
+            assert!(c >= min, "{name}: {fg} on {bg} is {c:.2} < {min}");
+        }
+    }
+}
+
+#[test]
 fn text_is_large_enough_for_vr() {
     let t = tokens();
     let min = t["checks"]["min_text_px"].as_u64().expect("min");

@@ -6,6 +6,11 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+- Themes: Lime, Mint, Aqua, Sky, Violet, Pink, Amber or White as the accent (Setup in VR, Settings > Look on
+  the desktop), the same eight as DesktopVR. The watch, panel and desktop window recolour at once; warning red
+  stays red, and dark text on every accent is at least 4.5:1.
+
 ### Changed
 - New look in line with DesktopVR: neutral graphite greys, soft rounded surfaces, Anton headings over
   Barlow (bundled, with a semibold weight for chosen tabs and filled buttons).

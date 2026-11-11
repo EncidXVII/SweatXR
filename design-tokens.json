@@ -18,6 +18,16 @@
     "danger_bg": "#2B1712",
     "danger_ink": "#FF8A6E"
   },
+  "themes": [
+    { "name": "Lime", "accent": "#C6FF1A", "pressed": "#A9DB12" },
+    { "name": "Mint", "accent": "#5CF2A0", "pressed": "#4FD08A" },
+    { "name": "Aqua", "accent": "#3DF2E0", "pressed": "#34D0C1" },
+    { "name": "Sky", "accent": "#5CC8FF", "pressed": "#4FACDB" },
+    { "name": "Violet", "accent": "#B49AFF", "pressed": "#9B84DB" },
+    { "name": "Pink", "accent": "#FF7ADB", "pressed": "#DB69BC" },
+    { "name": "Amber", "accent": "#FFB627", "pressed": "#DB9D22" },
+    { "name": "White", "accent": "#F5F5F7", "pressed": "#D3D3D4" }
+  ],
   "font": {
     "display": "Anton",
     "body": "Barlow"

@@ -77,6 +77,7 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
   saves the choice; the VR overlay connects.
 - **Export:** TCX and CSV files go to `Documents/FitnessVR`.
 - **Your data:** Settings > Data shows where it is stored and deletes all history (two clicks).
+- **Theme:** Settings > Look (or Setup in VR) picks the accent colour, one of eight shared with DesktopVR.
 
 ## Privacy
 

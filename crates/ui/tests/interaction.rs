@@ -24,6 +24,7 @@ enum Got {
     Resting(i32),
     Delete,
     Imperial(bool),
+    Theme(i32),
     FirstRunDone,
     Close,
     Scan,
@@ -51,6 +52,7 @@ fn record(panel: &Surface<PanelView>) -> Rc<RefCell<Vec<Got>>> {
         l.push(Got::Female(d.female));
         l.push(Got::Imperial(d.imperial));
         l.push(Got::Resting(d.resting_hr));
+        l.push(Got::Theme(d.theme));
     });
     let l = log.clone();
     s.on_finish_first_run(move || l.borrow_mut().push(Got::FirstRunDone));
@@ -157,6 +159,10 @@ fn every_panel_control_reaches_its_callback() {
     assert!(has(&log, &Got::Goal(275)), "goal -");
     click(&mut panel, SEG_X[1], row_y(2));
     assert!(has(&log, &Got::Imperial(true)), "units: {:?}", log.borrow());
+    // Theme: the fourth dot is Sky.
+    click(&mut panel, SKY_X, row_y(4));
+    assert!(has(&log, &Got::Theme(3)), "theme: {:?}", log.borrow());
+    click(&mut panel, LIME_X, row_y(4));
 
     // Strap: scan, pick the strap.
     click(&mut panel, 60.0, TAB_Y[3]);
@@ -200,7 +206,9 @@ const MINUS_X: f32 = 576.0;
 const PLUS_X: f32 = 736.0;
 const SEG_X: [f32; 2] = [582.0, 698.0];
 const SCAN: (f32, f32) = (735.0, 110.0);
-const DELETE: (f32, f32) = (700.0, 424.0);
+const DELETE: (f32, f32) = (700.0, 489.0);
+const LIME_X: f32 = 345.0;
+const SKY_X: f32 = 513.0;
 const NEXT: (f32, f32) = (720.0, 540.0);
 
 fn row_y(i: usize) -> f32 {

@@ -11,9 +11,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={}", tokens_path.display());
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&tokens_path)?)?;
 
-    let mut s = String::from(
+    // The accent follows the profile's theme, so every window recolours as soon as its profile is shown.
+    let state = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("ui/state.slint");
+    println!("cargo:rerun-if-changed={}", state.display());
+    let mut s = format!(
         "// Generated from design-tokens.json by build.rs.
-         export global Mode {
+         import {{ AppState }} from \"{}\";
+         ",
+        state.display().to_string().replace('\\', "/")
+    );
+    s.push_str(
+        "export global Mode {
     in-out property <bool> desktop;
     in-out property <bool> reduce-motion;
 }
@@ -24,12 +32,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut line = |ty: &str, name: String, value: String| {
         writeln!(s, "    out property <{ty}> {}: {value};", name.replace('_', "-"))
     };
+    let themes = json["themes"].as_array().ok_or("tokens: missing themes")?;
+    let list = |key: &str| -> Result<String, String> {
+        let items: Result<Vec<String>, String> = themes
+            .iter()
+            .map(|t| {
+                let v = t[key].as_str().ok_or(format!("theme {key} must be a string"))?;
+                Ok(if key == "name" {
+                    format!("{v:?}")
+                } else {
+                    v.to_owned()
+                })
+            })
+            .collect();
+        Ok(format!("[{}]", items?.join(", ")))
+    };
+    line("[color]", "themes".into(), list("accent")?)?;
+    line("[color]", "themes-pressed".into(), list("pressed")?)?;
+    line("[string]", "theme-names".into(), list("name")?)?;
     for (k, v) in group("color")? {
-        line(
-            "color",
-            k.clone(),
-            v.as_str().ok_or("color must be a string")?.to_owned(),
-        )?;
+        let value = match k.as_str() {
+            "accent" => "themes[AppState.profile.theme]".to_owned(),
+            "accent_pressed" => "themes-pressed[AppState.profile.theme]".to_owned(),
+            _ => v.as_str().ok_or("color must be a string")?.to_owned(),
+        };
+        line("color", k.clone(), value)?;
     }
     for (k, v) in group("font")? {
         line("string", format!("font-{k}"), format!("{v}"))?;
