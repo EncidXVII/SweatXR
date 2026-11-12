@@ -575,6 +575,23 @@ impl Vr {
         })
     }
 
+    /// Higher draws on top of overlays at the same depth (the pointer dot over the panel).
+    pub fn set_sort_order(&self, h: u64, order: u32) -> Result<(), VrError> {
+        // SAFETY: plain value call.
+        check("SetOverlaySortOrder", unsafe {
+            (self.overlay.SetOverlaySortOrder)(h, order)
+        })
+    }
+
+    /// Blocks until the compositor starts its next frame, so poses and overlay moves keep the
+    /// headset's own rate. Sleeps for the timeout instead when there is no frame to wait on.
+    pub fn wait_frame(&self, timeout_ms: u32) {
+        // SAFETY: plain value call.
+        if unsafe { (self.overlay.WaitFrameSync)(timeout_ms) } != 0 {
+            std::thread::sleep(std::time::Duration::from_millis(u64::from(timeout_ms)));
+        }
+    }
+
     pub fn set_alpha(&self, h: u64, alpha: f32) -> Result<(), VrError> {
         // SAFETY: plain value call.
         check("SetOverlayAlpha", unsafe {

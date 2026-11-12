@@ -121,10 +121,8 @@ export global AppState {
     in property <bool> first-run;
     in property <string> version;
 
-    // VR pointer
+    // The VR pointer is on this view (the dot itself is its own overlay).
     in property <bool> cursor-visible;
-    in property <length> cursor-x;
-    in property <length> cursor-y;
 
     callback profile-changed(ProfileData);
     callback finish-first-run();

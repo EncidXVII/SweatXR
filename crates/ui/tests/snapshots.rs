@@ -118,7 +118,6 @@ fn every_view_matches_its_snapshot() {
     check("watch", &mut watch);
     // Pointed at with the other hand: the card grows a line saying what the trigger does.
     watch.ui.global::<AppState>().set_cursor_visible(true);
-    watch.ui.global::<AppState>().set_cursor_x(-100.0);
     check("watch_pointed", &mut watch);
     watch.ui.global::<AppState>().set_cursor_visible(false);
 

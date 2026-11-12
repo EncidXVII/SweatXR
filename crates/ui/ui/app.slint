@@ -4,7 +4,7 @@ import "fonts/Anton-Regular.ttf";
 import "fonts/Barlow-Regular.ttf";
 import "fonts/Barlow-SemiBold.ttf";
 import { AppState, Feedback } from "state.slint";
-import { Caption, Cursor, Hit, Icon, Icons, Motion, Ring } from "kit.slint";
+import { Caption, Hit, Icon, Icons, Motion, Ring } from "kit.slint";
 import { DeskHistory, DeskSessions, DeskSettings, DeskToday, FirstRunPage, PanelSetup, PanelStrap, PanelToday, PanelWeek, PanelYou } from "pages.slint";
 
 export { AppState, Feedback, Mode }
@@ -224,7 +224,6 @@ export component WatchView inherits Window {
             }
         }
     }
-    Cursor { }
 }
 
 // A rail tab: icon in a pill (lime when chosen) over its name.
@@ -350,7 +349,6 @@ export component PanelView inherits Window {
             }
         }
     }
-    Cursor { }
 }
 
 component NavItem inherits Rectangle {

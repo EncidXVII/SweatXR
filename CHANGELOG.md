@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Fixed
+- The pointer dot no longer lags behind the beam: it is its own overlay, moved in the same frame, and the beam
+  rides on the controller, so both keep up with your hand at the headset's rate. The overlay now runs once per
+  headset frame instead of 50 times a second. Beam and dot take the theme's accent.
+- "Start with SteamVR" now reaches SteamVR as soon as you flip it, in the desktop window or in VR (turned on
+  while SteamVR runs, the watch starts at once). It no longer flips back: neither window writes the other's old
+  settings back over a change any more.
+- Tray: Quit removes the icon and closes FitnessVR. A left click opens the window; the menu is on the right
+  button.
+
+### Changed
+- The watch needs a quarter less turn of the wrist: its roll around the forearm must be within about 50 degrees
+  of your eyes to show and 61 to stay. Where your arm and head are counts exactly as before. Same as DesktopVR.
+
 ### Added
 - Themes: Lime, Mint, Aqua, Sky, Violet, Pink, Amber or White as the accent (Setup in VR, Settings > Look on
   the desktop), the same eight as DesktopVR. The watch, panel and desktop window recolour at once; warning red

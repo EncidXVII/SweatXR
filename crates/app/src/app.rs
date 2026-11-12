@@ -142,14 +142,12 @@ impl App {
         })
     }
 
-    /// Picks up edits the other process saved. Returns the previous profile if anything changed.
-    pub fn reload_profile(&mut self) -> Option<Profile> {
-        let fresh = self
-            .store
-            .profile()
-            .map_err(|e| tracing::warn!("profile: {e}"))
-            .ok()?;
-        (fresh != self.profile).then(|| std::mem::replace(&mut self.profile, fresh))
+    /// Picks up edits the other process saved.
+    pub fn reload_profile(&mut self) {
+        match self.store.profile() {
+            Ok(p) => self.profile = p,
+            Err(e) => tracing::warn!("profile: {e}"),
+        }
     }
 
     fn save(&mut self, p: Profile) {
@@ -159,13 +157,19 @@ impl App {
         self.profile = p;
     }
 
+    /// The stored profile, which the other process may have changed since we last read it. Every
+    /// save starts from it, so one process never writes back the other's old settings.
+    fn fresh(&self) -> Profile {
+        self.store.profile().unwrap_or_else(|_| self.profile.clone())
+    }
+
     /// Applies one UI command. Returns true when the panel should close.
     pub fn handle(&mut self, cmd: UiCmd) -> bool {
         match cmd {
-            UiCmd::Profile(d) => self.save(apply_profile(&d, &self.profile)),
+            UiCmd::Profile(d) => self.save(apply_profile(&d, &self.fresh())),
             UiCmd::FinishFirstRun => self.save(Profile {
                 onboarded: true,
-                ..self.profile.clone()
+                ..self.fresh()
             }),
             UiCmd::Range(i) => {
                 self.nav = Nav {
@@ -181,13 +185,12 @@ impl App {
                 Hr::Fake(_) => {}
             },
             UiCmd::HrPick(id) => {
-                let chosen = (self.profile.hr_device.as_deref() != Some(id.as_str())).then_some(id);
-                if let Hr::Live(b) = &self.hr {
-                    b.use_device(chosen.clone());
-                }
+                let p = self.fresh();
+                // The overlay hands the new choice to the strap when it sees the profile change.
+                let chosen = (p.hr_device.as_deref() != Some(id.as_str())).then_some(id);
                 self.save(Profile {
                     hr_device: chosen,
-                    ..self.profile.clone()
+                    ..p
                 });
             }
             UiCmd::ExportSession(id) => self.export_status = self.report(self.export_tcx(Some(id))),
@@ -262,7 +265,7 @@ impl App {
         if !self.profile.panel_seen {
             self.save(Profile {
                 panel_seen: true,
-                ..self.profile.clone()
+                ..self.fresh()
             });
         }
     }
@@ -279,7 +282,7 @@ impl App {
                     );
                     self.save(Profile {
                         calibration: Some(c),
-                        ..self.profile.clone()
+                        ..self.fresh()
                     });
                 }
             }
@@ -346,6 +349,27 @@ mod tests {
         let mut d = fitvr_ui::view::profile_data(&app.profile);
         f(&mut d);
         UiCmd::Profile(d)
+    }
+
+    #[test]
+    fn one_process_never_writes_back_the_others_old_settings() {
+        // The desktop turns "Start with SteamVR" off while the overlay still holds the old profile;
+        // the overlay then saves something of its own (panel seen, a strap, a calibration).
+        let (mut desk, root) = app("two");
+        let dirs = Dirs {
+            data: root.clone(),
+            export: root.join("export"),
+        };
+        let mut vr = App::open(&dirs, |_| Hr::Fake(FakeHr::new(vec![None]))).expect("open");
+        let off = profile_edit(&desk, |d| d.auto_start = !d.auto_start);
+        let want = !desk.profile.auto_start;
+        desk.handle(off);
+        vr.mark_panel_seen();
+        vr.handle(UiCmd::HrPick("strap".into()));
+        let saved = desk.store.profile().expect("profile");
+        assert_eq!(saved.auto_start, want, "auto-start kept");
+        assert!(saved.panel_seen && saved.hr_device.as_deref() == Some("strap"));
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

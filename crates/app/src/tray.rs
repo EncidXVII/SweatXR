@@ -1,5 +1,5 @@
-//! Windows tray icon: Open and Quit. The icon is drawn in code (accent ring) so there is no
-//! image decoder or asset to ship.
+//! Windows tray icon: a click opens the window, the right-click menu has Open and Quit. The icon
+//! is drawn in code (accent ring) so there is no image decoder or asset to ship.
 
 use fitvr_ui::DesktopWindow;
 use slint::ComponentHandle;
@@ -40,6 +40,8 @@ impl Tray {
             .with_tooltip("FitnessVR")
             .with_icon(Icon::from_rgba(ring(), SIZE, SIZE)?)
             .with_menu(Box::new(menu))
+            // Left click opens the window; the menu is on the right button, as elsewhere on Windows.
+            .with_menu_on_left_click(false)
             .build()?;
         Ok(Self {
             _icon: icon,
@@ -48,12 +50,14 @@ impl Tray {
         })
     }
 
-    pub fn poll(&self, ui: &DesktopWindow) {
+    /// Handles clicks since the last call. True when the player chose Quit.
+    pub fn poll(&self, ui: &DesktopWindow) -> bool {
         while let Ok(e) = MenuEvent::receiver().try_recv() {
+            if e.id == *self.quit.id() {
+                return true;
+            }
             if e.id == *self.open.id() {
                 let _ = ui.show();
-            } else if e.id == *self.quit.id() {
-                let _ = slint::quit_event_loop();
             }
         }
         while let Ok(e) = TrayIconEvent::receiver().try_recv() {
@@ -66,5 +70,6 @@ impl Tray {
                 let _ = ui.show();
             }
         }
+        false
     }
 }

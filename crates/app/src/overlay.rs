@@ -1,5 +1,5 @@
-//! The in-VR process: a watch on the wrist and a panel opened from it. Polls poses at 50 Hz,
-//! ticks the tracker at 1 Hz, redraws the watch at most 10 Hz and only when something changed.
+//! The in-VR process: a watch on the wrist and a panel opened from it. Runs once per compositor
+//! frame, ticks the tracker at 1 Hz, redraws the watch at most 10 Hz and only when something changed.
 
 use std::cell::Cell;
 use std::error::Error;
@@ -17,9 +17,10 @@ use fitvr_ui::offscreen::{Pointer, Surface, install};
 use fitvr_ui::view::progress;
 use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use fitvr_vr::{
-    AppKind, Apps, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD, Handle, LASER_PX, Mat,
-    PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance, inverse, laser,
-    laser_texture, near_face, panel_in_front, position, ray, uv_to_px, valid, watch_offset,
+    AppKind, Apps, DOT_PX, DOT_WIDTH_M, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD,
+    Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance,
+    dot_pose, dot_texture, inverse, laser, laser_texture, near_face, panel_in_front, position, ray, uv_to_px,
+    valid, watch_offset,
 };
 use slint::ComponentHandle;
 
@@ -27,7 +28,8 @@ use crate::Opts;
 use crate::app::{App, Hr, Queue, wire};
 use crate::setup::{self, ACTION_HAPTIC, ACTION_POINTER, ACTION_SELECT, ACTION_SET, Dirs};
 
-const POLL: Duration = Duration::from_millis(20);
+/// Longest wait for the compositor's next frame (and the pace when there is none).
+const POLL_MS: u32 = 20;
 const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
 /// How long the watch shows the lime GOAL face.
 const CELEBRATE: Duration = Duration::from_secs(4);
@@ -165,9 +167,17 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     vr.set_width(ov_watch, WATCH_WIDTH_M)?;
     vr.set_width(ov_panel, PANEL_WIDTH_M)?;
     let ov_laser = vr.create_overlay("fitnessvr.laser", "FitnessVR pointer")?;
+    let ov_dot = vr.create_overlay("fitnessvr.dot", "FitnessVR pointer dot")?;
+    vr.set_width(ov_dot, DOT_WIDTH_M)?;
+    // Over the panel and the watch, which sit at the dot's depth.
+    for (ov, order) in [(ov_laser, 1), (ov_dot, 2)] {
+        if let Err(e) = vr.set_sort_order(ov, order) {
+            tracing::warn!("{e}");
+        }
+    }
     let mut tex = Textures::new(&vr);
-    tex.upload(&vr, ov_laser, 2, &mut laser_texture(), LASER_PX);
-    let mut laser_on = false;
+    let mut accent = None;
+    let (mut laser_on, mut dot_on) = (false, false);
     // None until the first tick, so a goal already met at launch does not celebrate again.
     let mut goal_met: Option<bool> = None;
     let mut celebrate_until: Option<Instant> = None;
@@ -184,6 +194,8 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let (mut last_frame, mut panel_alpha, mut on_watch) = (Instant::now(), 1.0f32, false);
     let (mut panel_open, mut select_down, mut scene_dirty, mut watch_stale) = (false, false, true, false);
     let (mut loops, mut redraws) = (0u64, 0u64);
+    // What SteamVR and the strap were last told, so a change from either window reaches them.
+    let mut applied = Applied::from(&app.profile);
 
     'main: loop {
         let loop_start = Instant::now();
@@ -197,6 +209,13 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             }
         }
         let hand = app.profile.watch_hand;
+        // Beam and dot in the theme's accent, redrawn when the theme changes.
+        if accent != Some(app.profile.theme) {
+            accent = Some(app.profile.theme);
+            let rgb = fitvr_ui::accent_rgb(app.profile.theme);
+            tex.upload(&vr, ov_laser, 2, &mut laser_texture(rgb), LASER_PX);
+            tex.upload(&vr, ov_dot, 3, &mut dot_texture(rgb), (DOT_PX, DOT_PX));
+        }
         let poses = vr.poses();
         let (left, right) = (vr.controller(ROLE_LEFT), vr.controller(ROLE_RIGHT));
         let frame = fitvr_vr::frame(started.elapsed().as_secs_f64(), &poses[..], left, right);
@@ -227,11 +246,8 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             if events.iter().any(|e| matches!(e, Event::End { .. })) {
                 app.recalibrate();
             }
-            if now % 5 == 0
-                && let Some(old) = app.reload_profile()
-            {
-                apply_profile_change(&vr, &app, &old);
-            }
+            // Picks up the desktop window's edits.
+            app.reload_profile();
             app.show(&watch.ui.global::<AppState>(), now);
             if panel_open {
                 app.show(&panel.ui.global::<AppState>(), now);
@@ -282,10 +298,8 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             ),
         }
 
-        let pointer_raw = vr
-            .controller(role(other(hand)))
-            .and_then(|i| poses.get(i as usize))
-            .and_then(valid);
+        let pointer_device = vr.controller(role(other(hand)));
+        let pointer_raw = pointer_device.and_then(|i| poses.get(i as usize)).and_then(valid);
         let pointer = tip(&vr, input.as_ref(), other(hand), pointer_raw);
         let pointer = pointer.as_ref();
         let (pressed, changed) = match &input {
@@ -308,10 +322,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 beam = Some((o, hit));
                 let (x, y) = uv_to_px(uv, PANEL_PX.0, PANEL_PX.1);
                 panel.pointer(x, y, Pointer::Move);
-                let s = panel.ui.global::<AppState>();
-                s.set_cursor_visible(true);
-                s.set_cursor_x(x);
-                s.set_cursor_y(y);
+                panel.ui.global::<AppState>().set_cursor_visible(true);
                 if down {
                     panel.pointer(x, y, Pointer::Down);
                 }
@@ -360,14 +371,29 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
 
         match (beam, head) {
             (Some((from, to)), Some(h)) => {
-                let (m, len) = laser(from, to, position(h));
-                let placed = vr.place(ov_laser, &m).and_then(|()| vr.set_width(ov_laser, len));
+                let eye = position(h);
+                let (m, len) = laser(from, to, eye);
+                // The beam rides on the pointing controller and the dot on what it points at, so
+                // both move with them at the headset's rate, in step with each other.
+                let placed = ride(&vr, ov_laser, &m, pointer_device.zip(pointer_raw))
+                    .and_then(|()| vr.set_width(ov_laser, len));
+                let carrier = if on_panel { None } else { wrist.zip(wrist_pose) };
+                let dotted = ride(&vr, ov_dot, &dot_pose(to, eye), carrier);
                 if placed.is_ok() && !laser_on {
                     laser_on = vr.set_visible(ov_laser, true).is_ok();
                 }
+                if dotted.is_ok() && !dot_on {
+                    dot_on = vr.set_visible(ov_dot, true).is_ok();
+                }
             }
-            _ if laser_on => laser_on = vr.set_visible(ov_laser, false).is_err(),
-            _ => {}
+            _ => {
+                if laser_on {
+                    laser_on = vr.set_visible(ov_laser, false).is_err();
+                }
+                if dot_on {
+                    dot_on = vr.set_visible(ov_dot, false).is_err();
+                }
+            }
         }
 
         if panel_open && panel_alpha < 1.0 {
@@ -392,6 +418,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             app.show(&panel.ui.global::<AppState>(), now);
             app.show(&watch.ui.global::<AppState>(), now);
         }
+        applied.sync(&vr, &app);
 
         if last_watch_frame.elapsed() >= WATCH_MIN_FRAME && watch.render() {
             last_watch_frame = Instant::now();
@@ -413,7 +440,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         if opts.exit_after.is_some_and(|s| started.elapsed().as_secs() >= s) {
             break;
         }
-        std::thread::sleep(POLL.saturating_sub(loop_start.elapsed()));
+        vr.wait_frame(POLL_MS);
     }
 
     if let Err(e) = app.store.apply(&tracker.finish()) {
@@ -422,6 +449,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     vr.destroy_overlay(ov_watch);
     vr.destroy_overlay(ov_panel);
     vr.destroy_overlay(ov_laser);
+    vr.destroy_overlay(ov_dot);
     // SteamVR keeps a handle to our Vulkan images until it shuts down; destroying the device
     // first crashed on exit. So: OpenVR down, then the GPU objects.
     drop(vr);
@@ -433,7 +461,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// GPU textures when Vulkan works (slot 0 watch, 1 panel, 2 laser), else SetOverlayRaw, which leaks
+/// GPU textures when Vulkan works (slot 0 watch, 1 panel, 2 laser, 3 dot), else SetOverlayRaw, which leaks
 /// inside SteamVR and is only a fallback.
 struct Textures(Option<Gpu>);
 
@@ -443,6 +471,7 @@ impl Textures {
             g.add_texture(WATCH_PX.0, WATCH_PX.1)?;
             g.add_texture(PANEL_PX.0, PANEL_PX.1)?;
             g.add_texture(LASER_PX.0, LASER_PX.1)?;
+            g.add_texture(DOT_PX, DOT_PX)?;
             Ok(g)
         });
         match gpu {
@@ -462,6 +491,15 @@ impl Textures {
         if let Err(e) = result {
             tracing::warn!("{e}");
         }
+    }
+}
+
+/// Places an overlay at world pose `m`, held by a tracked device (its index and pose this frame)
+/// when there is one, so the compositor moves it with that device between our frames.
+fn ride(vr: &Vr, ov: u64, m: &Mat, device: Option<(u32, &Mat)>) -> Result<(), fitvr_vr::VrError> {
+    match device {
+        Some((i, pose)) => vr.attach(ov, i, &compose(&inverse(pose), m)),
+        None => vr.place(ov, m),
     }
 }
 
@@ -531,15 +569,37 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
     }
 }
 
-fn apply_profile_change(vr: &Vr, app: &App, old: &fitvr_core::profile::Profile) {
-    if old.auto_start != app.profile.auto_start
-        && let Err(e) = vr.apps().set_auto_launch(setup::APP_KEY, app.profile.auto_start)
-    {
-        tracing::warn!("{e}");
+/// The settings that live outside the profile too: SteamVR's auto-launch flag and the strap.
+struct Applied {
+    auto_start: bool,
+    hr_device: Option<String>,
+}
+
+impl From<&fitvr_core::profile::Profile> for Applied {
+    fn from(p: &fitvr_core::profile::Profile) -> Self {
+        Self {
+            auto_start: p.auto_start,
+            hr_device: p.hr_device.clone(),
+        }
     }
-    if old.hr_device != app.profile.hr_device
-        && let Hr::Live(b) = &app.hr
-    {
-        b.use_device(app.profile.hr_device.clone());
+}
+
+impl Applied {
+    /// Passes on whatever changed since last time, whichever window changed it.
+    fn sync(&mut self, vr: &Vr, app: &App) {
+        let p = &app.profile;
+        if self.auto_start != p.auto_start {
+            self.auto_start = p.auto_start;
+            match vr.apps().set_auto_launch(setup::APP_KEY, p.auto_start) {
+                Ok(()) => tracing::info!("start with SteamVR: {}", p.auto_start),
+                Err(e) => tracing::warn!("{e}"),
+            }
+        }
+        if self.hr_device != p.hr_device {
+            self.hr_device.clone_from(&p.hr_device);
+            if let Hr::Live(b) = &app.hr {
+                b.use_device(p.hr_device.clone());
+            }
+        }
     }
 }

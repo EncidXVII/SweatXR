@@ -48,6 +48,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         Ok(format!("[{}]", items?.join(", ")))
     };
     line("[color]", "themes".into(), list("accent")?)?;
+    // The same accents for Rust, which draws the VR pointer itself.
+    let rgbs: Result<Vec<String>, String> = themes
+        .iter()
+        .map(|t| {
+            let hex = t["accent"].as_str().ok_or("theme accent must be a string")?;
+            let v = u32::from_str_radix(hex.trim_start_matches('#'), 16).map_err(|e| e.to_string())?;
+            Ok(format!("[{}, {}, {}]", v >> 16, (v >> 8) & 255, v & 255))
+        })
+        .collect();
+    let rgbs = rgbs?;
+    std::fs::write(
+        PathBuf::from(std::env::var("OUT_DIR")?).join("accents.rs"),
+        format!(
+            "pub const ACCENTS: [[u8; 3]; {}] = [{}];\n",
+            rgbs.len(),
+            rgbs.join(", ")
+        ),
+    )?;
     line("[color]", "themes-pressed".into(), list("pressed")?)?;
     line("[string]", "theme-names".into(), list("name")?)?;
     for (k, v) in group("color")? {

@@ -131,25 +131,42 @@ pub struct Glance {
     held_s: f32,
 }
 
-/// Shows when the face is within about 66 degrees of the eyes and the watch within 45 degrees of
-/// where the head looks; stays until those pass about 81 and 63 degrees.
-const GLANCE_SHOW: (f32, f32) = (0.4, 0.7);
-const GLANCE_KEEP: (f32, f32) = (0.15, 0.45);
+/// Shows when the wrist is turned to within about 50 degrees of the eyes, the face within about 66
+/// degrees of them and the watch within 45 degrees of where the head looks; stays until those pass
+/// about 61, 81 and 63 degrees. The wrist's turn is its roll around the forearm alone; the face and
+/// look angles are what they always were, so only the wrist has to turn less far. As DesktopVR.
+/// (roll, facing, looking), cosines.
+const GLANCE_SHOW: (f32, f32, f32) = (0.64, 0.4, 0.7);
+const GLANCE_KEEP: (f32, f32, f32) = (0.48, 0.15, 0.45);
 const GLANCE_HOLD_S: f32 = 0.3;
 
 impl Glance {
     /// Steps by `dt` seconds; true while the watch is looked at.
     pub fn update(&mut self, head: &Mat, watch: &Mat, dt: f32) -> bool {
         let to_eye = sub(position(head), position(watch));
-        let (facing, looking) = if dot(to_eye, to_eye) < 1e-8 {
-            (1.0, 1.0)
+        let (roll, facing, looking) = if dot(to_eye, to_eye) < 1e-8 {
+            (1.0, 1.0, 1.0)
         } else {
             let to_eye = norm(to_eye);
-            (dot(axis(watch, 2), to_eye), dot(axis(head, 2), to_eye))
+            // Around the forearm (the text runs along it); looking straight down it, the face angle.
+            let arm = axis(watch, 0);
+            let along = dot(to_eye, arm);
+            let across = sub(to_eye, [arm[0] * along, arm[1] * along, arm[2] * along]);
+            let toward = if dot(across, across) > 0.04 {
+                norm(across)
+            } else {
+                to_eye
+            };
+            let normal = axis(watch, 2);
+            (
+                dot(normal, toward),
+                dot(normal, to_eye),
+                dot(axis(head, 2), to_eye),
+            )
         };
         self.held_s += dt;
-        let (f, l) = if self.shown { GLANCE_KEEP } else { GLANCE_SHOW };
-        let want = facing > f && looking > l;
+        let (r, f, l) = if self.shown { GLANCE_KEEP } else { GLANCE_SHOW };
+        let want = roll > r && facing > f && looking > l;
         if want != self.shown && (want || self.held_s >= GLANCE_HOLD_S) {
             self.shown = want;
             self.held_s = 0.0;
@@ -194,15 +211,63 @@ pub fn ray(controller: &Mat) -> (Vec3, Vec3) {
 /// a 0.7 m reach the beam is 0.7 / 256 m = 2.7 mm thick.
 pub const LASER_PX: (u32, u32) = (512, 2);
 
-/// Lime beam fading in from the controller, straight RGBA.
-pub fn laser_texture() -> Vec<u8> {
+/// Beam in the accent colour fading in from the controller, straight RGBA.
+pub fn laser_texture(rgb: [u8; 3]) -> Vec<u8> {
     let (w, h) = LASER_PX;
     (0..w * h)
         .flat_map(|i| {
             let t = (i % w) as f32 / (w - 1) as f32;
-            [0xC6, 0xFF, 0x1A, (40.0 + 200.0 * t) as u8]
+            [rgb[0], rgb[1], rgb[2], (40.0 + 200.0 * t) as u8]
         })
         .collect()
+}
+
+/// The pointer dot: its own overlay, moved in the same frame as the beam, so the two never drift
+/// apart the way a dot drawn into the panel's picture does (that one shows a frame or more late).
+pub const DOT_PX: u32 = 32;
+/// About the size of the old in-picture dot on the panel (16 of its 800 px).
+pub const DOT_WIDTH_M: f32 = 0.011;
+
+/// Accent disc with a dark rim, antialiased, straight RGBA.
+pub fn dot_texture(rgb: [u8; 3]) -> Vec<u8> {
+    let c = (DOT_PX as f32 - 1.0) / 2.0;
+    (0..DOT_PX * DOT_PX)
+        .flat_map(|i| {
+            let (x, y) = ((i % DOT_PX) as f32 - c, (i / DOT_PX) as f32 - c);
+            let r = (x * x + y * y).sqrt();
+            let alpha = (c + 0.5 - r).clamp(0.0, 1.0);
+            // Rim: the outer eighth, in the background grey, so the dot reads on a lit control.
+            let rim = (r - c * 0.75).clamp(0.0, 1.0);
+            let mix = |a: u8, b: u8| (f32::from(a) * (1.0 - rim) + f32::from(b) * rim) as u8;
+            [
+                mix(rgb[0], 0x0B),
+                mix(rgb[1], 0x0B),
+                mix(rgb[2], 0x0C),
+                (alpha * 255.0) as u8,
+            ]
+        })
+        .collect()
+}
+
+/// The dot at `at`, turned to face the eye and lifted 2 mm toward it so it sits on top of what it
+/// points at.
+pub fn dot_pose(at: Vec3, eye: Vec3) -> Mat {
+    let z = norm(sub(eye, at));
+    let up = if z[1].abs() > 0.99 {
+        [0.0, 0.0, 1.0]
+    } else {
+        [0.0, 1.0, 0.0]
+    };
+    let x = norm(cross(up, z));
+    let y = cross(z, x);
+    let p = [at[0] + z[0] * 0.002, at[1] + z[1] * 0.002, at[2] + z[2] * 0.002];
+    Mat {
+        m: [
+            [x[0], y[0], z[0], p[0]],
+            [x[1], y[1], z[1], p[1]],
+            [x[2], y[2], z[2], p[2]],
+        ],
+    }
 }
 
 /// Overlay transform for a beam from `from` to `to`, its flat side turned toward the eyes.
@@ -387,6 +452,18 @@ mod tests {
             "beam axis along the ray"
         );
         assert!(axis(&m, 2)[1] > 0.9, "flat side up toward the eye above it");
+    }
+
+    #[test]
+    fn dot_faces_the_eye_just_in_front_of_the_hit() {
+        let m = dot_pose([0.0, 1.0, -1.0], [0.0, 1.0, 0.0]);
+        assert!(dot(axis(&m, 2), [0.0, 0.0, 1.0]) > 0.999, "faces the eye");
+        assert!((position(&m)[2] + 0.998).abs() < 1e-5, "2 mm toward the eye");
+        assert!(dot(axis(&m, 1), [0.0, 1.0, 0.0]) > 0.999, "upright");
+        let px = dot_texture([0xC6, 0xFF, 0x1A]);
+        let at = |x: u32, y: u32| px[((y * DOT_PX + x) * 4) as usize..][..4].to_vec();
+        assert_eq!(at(16, 16), [0xC6, 0xFF, 0x1A, 255], "accent centre");
+        assert_eq!(at(0, 0)[3], 0, "clear corner");
     }
 
     #[test]

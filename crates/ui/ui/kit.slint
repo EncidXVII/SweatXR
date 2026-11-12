@@ -608,16 +608,3 @@ export component BarChart inherits Rectangle {
         }
     }
 }
-
-// Where the VR pointer is. Hidden on the desktop.
-export component Cursor inherits Rectangle {
-    visible: AppState.cursor-visible;
-    x: AppState.cursor-x - self.width / 2;
-    y: AppState.cursor-y - self.height / 2;
-    width: Tokens.space-4;
-    height: Tokens.space-4;
-    border-radius: self.width / 2;
-    background: Tokens.accent;
-    border-width: 2px;
-    border-color: Tokens.bg;
-}

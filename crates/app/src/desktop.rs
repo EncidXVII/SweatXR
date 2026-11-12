@@ -35,15 +35,11 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     wire(&ui.global::<AppState>(), &queue);
     app.borrow().show(&ui.global::<AppState>(), now_unix());
 
-    // Registers the overlay with SteamVR if it is running; harmless if not.
-    if let Ok(exe) = std::env::current_exe()
-        && let Err(e) = std::process::Command::new(exe).arg("--register").spawn()
-    {
-        tracing::warn!("register: {e}");
-    }
+    register();
+    let mut applied_auto_start = app.borrow().profile.auto_start;
 
     #[cfg(windows)]
-    let tray = crate::tray::Tray::new()
+    let mut tray = crate::tray::Tray::new()
         .map_err(|e| tracing::warn!("tray: {e}"))
         .ok();
     // Closing the window quits: tracking runs in the VR overlay, not here, so nothing is lost, and
@@ -71,9 +67,18 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
             app.reload_profile();
             app.show(&ui.global::<AppState>(), now_unix());
         }
+        // "Start with SteamVR" changed here or in VR: tell SteamVR now (and start the watch if
+        // SteamVR is running), not the next time the overlay happens to run.
+        if app.profile.auto_start != applied_auto_start {
+            applied_auto_start = app.profile.auto_start;
+            register();
+        }
         #[cfg(windows)]
-        if let Some(t) = &tray {
-            t.poll(&ui);
+        if tray.as_ref().is_some_and(|t| t.poll(&ui)) {
+            // Quit: the icon goes first, then the window and the loop.
+            tray = None;
+            let _ = ui.hide();
+            let _ = slint::quit_event_loop();
         }
     });
 
@@ -84,4 +89,14 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
         slint::run_event_loop()?;
     }
     Ok(())
+}
+
+/// Registers the overlay with SteamVR and applies "Start with SteamVR" (`fitvr --register`, in its
+/// own process: SteamVR's API lets one connection per process). Harmless when SteamVR is off.
+fn register() {
+    if let Ok(exe) = std::env::current_exe()
+        && let Err(e) = std::process::Command::new(exe).arg("--register").spawn()
+    {
+        tracing::warn!("register: {e}");
+    }
 }

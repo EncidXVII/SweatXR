@@ -25,6 +25,7 @@ enum Got {
     Delete,
     Imperial(bool),
     Theme(i32),
+    AutoStart(bool),
     FirstRunDone,
     Close,
     Scan,
@@ -53,6 +54,7 @@ fn record(panel: &Surface<PanelView>) -> Rc<RefCell<Vec<Got>>> {
         l.push(Got::Imperial(d.imperial));
         l.push(Got::Resting(d.resting_hr));
         l.push(Got::Theme(d.theme));
+        l.push(Got::AutoStart(d.auto_start));
     });
     let l = log.clone();
     s.on_finish_first_run(move || l.borrow_mut().push(Got::FirstRunDone));
@@ -159,6 +161,17 @@ fn every_panel_control_reaches_its_callback() {
     assert!(has(&log, &Got::Goal(275)), "goal -");
     click(&mut panel, SEG_X[1], row_y(2));
     assert!(has(&log, &Got::Imperial(true)), "units: {:?}", log.borrow());
+    // Start with SteamVR: one click turns it off, the next back on.
+    let auto = panel.ui.global::<AppState>().get_profile().auto_start;
+    click(&mut panel, 400.0, row_y(3));
+    assert!(
+        has(&log, &Got::AutoStart(!auto)),
+        "auto-start: {:?}",
+        log.borrow()
+    );
+    assert_eq!(panel.ui.global::<AppState>().get_profile().auto_start, !auto);
+    click(&mut panel, 400.0, row_y(3));
+    assert_eq!(panel.ui.global::<AppState>().get_profile().auto_start, auto);
     // Theme: the fourth dot is Sky.
     click(&mut panel, SKY_X, row_y(4));
     assert!(has(&log, &Got::Theme(3)), "theme: {:?}", log.borrow());
