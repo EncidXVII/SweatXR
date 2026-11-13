@@ -17,6 +17,8 @@ All notable changes to this project are documented here. Format based on
   button.
 
 ### Changed
+- The watch sits on the back of the wrist, facing out of it, where a real watch is. It was on the controller's top,
+  under the thumb, so it faced your chest when you turned the wrist to read it. Same as DesktopVR.
 - The watch shows from a wider look: within about 52 degrees of where you look (was 45), and stays to 70 (was
   63). The wrist's turn is unchanged. Same as DesktopVR.
 - New logo: a heartbeat in straight, leaning bars, in the same family as DesktopVR's and Parallax's. It is the
