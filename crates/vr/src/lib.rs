@@ -74,19 +74,17 @@ pub const PANEL_DISTANCE_M: f32 = 0.72;
 /// Controller this close to the face: the player is aiming or eating; get out of the way.
 const NEAR_FACE_M: f32 = 0.15;
 
-/// Watch relative to the controller's tip pose (-Z where it points, +Y its top, under the thumb), as
-/// on DesktopVR: behind the tip, on the back of the hand (left: -X, right: +X) and facing out of
-/// it, where a real watch sits. On the controller's top it faced your chest when you turned the
-/// wrist to read it. Like a real watch, text runs along the forearm and its top points away from
-/// you when you raise the wrist across your chest, palm down, on either hand. `aspect` is the
-/// texture's height over width: the top edge stays put whatever the height, so a card that grows,
-/// grows toward you.
+/// Watch relative to the controller's tip pose (-Z where it points, +Y up out of the back of the
+/// hand), as on DesktopVR: behind the tip, facing up out of the controller. Like a real watch, text
+/// runs along the forearm and its top points away from you when you raise the wrist across your
+/// chest, on either hand. `aspect` is the texture's height over width: the top edge stays put
+/// whatever the height, so a card that grows, grows toward you.
 pub fn watch_offset(hand: Hand, aspect: f32) -> Mat {
     let s = if hand == Hand::Left { 1.0 } else { -1.0 };
     // Columns: text direction (texture x), text up (texture y), face normal.
-    let (x, y, z) = ([0.0, 0.0, -s], [0.0, -1.0, 0.0], [-s, 0.0, 0.0]);
+    let (x, y, z) = ([0.0, 0.0, -s], [-s, 0.0, 0.0], [0.0, 1.0, 0.0]);
     let drop = WATCH_WIDTH_M * aspect * 0.5 - WATCH_TOP_M;
-    let p = [-0.04 * s - y[0] * drop, -y[1] * drop, 0.16 - y[2] * drop];
+    let p = [-y[0] * drop, 0.04 - y[1] * drop, 0.16 - y[2] * drop];
     Mat {
         m: [
             [x[0], y[0], z[0], p[0]],
@@ -328,10 +326,10 @@ mod tests {
         assert!(dot(axis(&panel, 2), to_head) > 0.95);
     }
 
-    /// Controller pointing along `along` (its -Z) with its top (+Y, under the thumb) toward `top`.
-    fn pointing(at_: Vec3, along: Vec3, top: Vec3) -> Mat {
+    /// Controller pointing along `along` (its -Z), back of the hand up.
+    fn pointing(at_: Vec3, along: Vec3) -> Mat {
         let z = [-along[0], -along[1], -along[2]];
-        let y = top;
+        let y = [0.0, 1.0, 0.0];
         let x = cross(y, z);
         Mat {
             m: [
@@ -343,13 +341,12 @@ mod tests {
     }
 
     /// Wrist raised across the chest, palm down: the left hand points to the user's right (+X),
-    /// the right hand to the left, the controller's top (under the thumb) toward the user and the
-    /// back of the hand up. Text runs along the arm, reading left to right, top away from the user
-    /// (-Z), face up. Same rule on both hands.
+    /// the right hand to the left. Text runs along the arm, reading left to right, top away from
+    /// the user (-Z), face up. Same rule on both hands.
     #[test]
     fn watch_reads_like_a_watch_on_both_hands() {
         for (hand, along) in [(Hand::Left, [1.0, 0.0, 0.0]), (Hand::Right, [-1.0, 0.0, 0.0])] {
-            let ctrl = pointing([0.0, 1.2, -0.3], along, [0.0, 0.0, 1.0]);
+            let ctrl = pointing([0.0, 1.2, -0.3], along);
             let w = compose(&ctrl, &watch_offset(hand, 0.58));
             assert!(
                 dot(axis(&w, 0), [1.0, 0.0, 0.0]) > 0.99,
@@ -388,7 +385,7 @@ mod tests {
     fn watch_shows_only_when_looked_at() {
         let eye = [0.0, 1.6, 0.0];
         let watch_at = [0.0, 1.2, -0.3];
-        let face_up = pointing(watch_at, [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]);
+        let face_up = pointing(watch_at, [1.0, 0.0, 0.0]);
         let watch = compose(&face_up, &watch_offset(Hand::Left, 0.58));
         // Head with its -Z on the target, pitched as needed.
         let head_at = |target: Vec3| {
@@ -416,11 +413,10 @@ mod tests {
         let away = head_at([0.0, 2.6, -1.0]);
         assert!(g.update(&away, &watch, 0.1), "held, never a blink");
         assert!(!g.update(&away, &watch, 0.3), "then gone");
-        // Rolled half a turn around the forearm.
         let palm_up = compose(
-            &face_up,
+            &pointing(watch_at, [1.0, 0.0, 0.0]),
             &Mat {
-                m: [[-1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+                m: [[1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0]],
             },
         );
         let turned = compose(&palm_up, &watch_offset(Hand::Left, 0.58));
@@ -434,7 +430,7 @@ mod tests {
     #[test]
     fn inverse_undoes_a_transform() {
         let a = compose(
-            &pointing([0.3, 1.1, -0.2], [0.6, 0.0, -0.8], [0.0, 1.0, 0.0]),
+            &pointing([0.3, 1.1, -0.2], [0.6, 0.0, -0.8]),
             &watch_offset(Hand::Right, 0.5),
         );
         let back = compose(&inverse(&a), &a);
