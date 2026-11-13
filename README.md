@@ -1,3 +1,5 @@
+<img src="packaging/brand/fitnessvr-mark.svg" width="72" alt="FitnessVR logo">
+
 # FitnessVR: a VR fitness tracker for every SteamVR game
 
 **A free, open-source calorie counter and heart rate watch for SteamVR.** Glance at your wrist

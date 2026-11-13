@@ -48,8 +48,13 @@ fn write_json(path: &Path, value: &serde_json::Value) -> std::io::Result<()> {
     )
 }
 
+/// The app icon SteamVR shows next to FitnessVR in its startup and overlay lists.
+const STEAMVR_IMAGE: &[u8] = include_bytes!("../../../packaging/brand/fitnessvr-256.png");
+
 /// Writes the manifest pointing at this exact executable, so a moved install re-registers itself.
 pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
+    let image = dirs.data.join("fitnessvr.png");
+    std::fs::write(&image, STEAMVR_IMAGE)?;
     // Inside an AppImage the exe sits in a mount whose path changes every run; $APPIMAGE is the
     // stable file SteamVR must launch.
     let exe = match std::env::var_os("APPIMAGE") {
@@ -71,6 +76,7 @@ pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
                 "launch_type": "binary",
                 exe_key: exe,
                 "arguments": "--overlay",
+                "image_path": image,
                 "is_dashboard_overlay": true,
                 "strings": { "en_us": {
                     "name": "FitnessVR",

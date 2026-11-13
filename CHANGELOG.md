@@ -17,6 +17,10 @@ All notable changes to this project are documented here. Format based on
   button.
 
 ### Changed
+- New logo: a heartbeat in straight, leaning bars, in the same family as DesktopVR's and Parallax's. It is the
+  app and window icon, the tray icon (lime on a dark taskbar, dark on a light one, switching with Windows), the
+  picture SteamVR shows next to FitnessVR, the Linux icon, and it sits beside the name in the desktop window in
+  the theme's accent. Every icon is drawn from one script, packaging/brand/marks.py.
 - The watch needs a quarter less turn of the wrist: its roll around the forearm must be within about 50 degrees
   of your eyes to show and 61 to stay. Where your arm and head are counts exactly as before. Same as DesktopVR.
 

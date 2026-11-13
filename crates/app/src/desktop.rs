@@ -74,7 +74,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
             register();
         }
         #[cfg(windows)]
-        if tray.as_ref().is_some_and(|t| t.poll(&ui)) {
+        if tray.as_mut().is_some_and(|t| t.poll(&ui)) {
             // Quit: the icon goes first, then the window and the loop.
             tray = None;
             let _ = ui.hide();

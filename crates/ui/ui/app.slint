@@ -396,6 +396,7 @@ component NavItem inherits Rectangle {
 export component DesktopWindow inherits Window {
     in-out property <int> tab;
     title: "FitnessVR";
+    icon: @image-url("../../../packaging/brand/fitnessvr-256.png");
     preferred-width: 1200px;
     preferred-height: 800px;
     min-width: 1024px;
@@ -416,7 +417,17 @@ export component DesktopWindow inherits Window {
                     padding-left: Tokens.space-3;
                     padding-top: Tokens.space-1;
                     padding-bottom: Tokens.space-5;
+                    spacing: Tokens.space-2;
+                    // The mark in the theme's accent, as tall as the wordmark's capitals.
+                    Image {
+                        source: @image-url("../../../packaging/brand/fitnessvr-mark.svg");
+                        colorize: Tokens.accent;
+                        width: Tokens.type-brand * 1.15;
+                        height: self.width;
+                        y: (parent.height - self.height) / 2;
+                    }
                     Text {
+                        vertical-alignment: center;
                         text: "FITNESSVR";
                         color: Tokens.ink;
                         font-size: Tokens.type-brand;
