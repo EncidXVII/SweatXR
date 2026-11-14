@@ -125,6 +125,12 @@ pub struct IVROverlayFn {
         height: u32,
         bytes_per_pixel: u32,
     ) -> u32,
+    pub SetOverlayFromFile: Slot,
+    pub GetOverlayTexture: Slot,
+    pub ReleaseNativeOverlayHandle: Slot,
+    pub GetOverlayTextureSize: Slot,
+    pub CreateDashboardOverlay: Slot,
+    pub IsDashboardVisible: unsafe extern "C" fn() -> bool,
 }
 
 pub const IVRCOMPOSITOR: &str = "FnTable:IVRCompositor_029\0";
@@ -184,7 +190,7 @@ pub const IVRAPPLICATIONS: &str = "FnTable:IVRApplications_008\0";
 #[allow(non_snake_case)]
 pub struct IVRApplicationsFn {
     pub AddApplicationManifest: unsafe extern "C" fn(path: *const c_char, temporary: bool) -> u32,
-    pub RemoveApplicationManifest: Slot,
+    pub RemoveApplicationManifest: unsafe extern "C" fn(path: *const c_char) -> u32,
     pub IsApplicationInstalled: Slot,
     pub GetApplicationCount: Slot,
     pub GetApplicationKeyByIndex: Slot,
@@ -194,7 +200,7 @@ pub struct IVRApplicationsFn {
     pub LaunchApplicationFromMimeType: Slot,
     pub LaunchDashboardOverlay: Slot,
     pub CancelApplicationLaunch: Slot,
-    pub IdentifyApplication: Slot,
+    pub IdentifyApplication: unsafe extern "C" fn(pid: u32, key: *const c_char) -> u32,
     pub GetApplicationProcessId: unsafe extern "C" fn(key: *const c_char) -> u32,
     pub GetApplicationsErrorNameFromEnum: Slot,
     pub GetApplicationPropertyString: unsafe extern "C" fn(

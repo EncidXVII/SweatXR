@@ -5,7 +5,7 @@ mod ffi;
 
 pub use ffi::{
     AppKind, Apps, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, HmdMatrix34,
-    MAX_DEVICES, ROLE_LEFT, ROLE_RIGHT, TrackedDevicePose, Vr, VrError, runtime_dir,
+    MAX_DEVICES, ROLE_LEFT, ROLE_RIGHT, TrackedDevicePose, Vr, VrError, config_dir, runtime_dir,
 };
 
 use fitvr_core::profile::Hand;

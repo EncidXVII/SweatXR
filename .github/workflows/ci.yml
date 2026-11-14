@@ -43,7 +43,8 @@ jobs:
         run: |
           mkdir -p dist/fitvr
           cp target/release/${{ matrix.bin }} LICENSE THIRD_PARTY_NOTICES.md README.md dist/fitvr/
-          if [ "$RUNNER_OS" = Linux ]; then cp scripts/install.sh dist/fitvr/; fi
+          if [ "$RUNNER_OS" = Linux ]; then cp scripts/install.sh scripts/uninstall.sh dist/fitvr/
+          else cp "scripts/Uninstall FitnessVR.cmd" dist/fitvr/; fi
           cd dist
           if [ "$RUNNER_OS" = Windows ]; then f=${{ matrix.artifact }}.zip; 7z a -tzip "$f" fitvr > /dev/null
           else f=${{ matrix.artifact }}.tar.gz; tar czf "$f" fitvr; fi

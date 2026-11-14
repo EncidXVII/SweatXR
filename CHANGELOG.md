@@ -6,7 +6,19 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+- Uninstall: `Uninstall FitnessVR.cmd` in the Windows folder, `uninstall.sh` in the Linux archive, or
+  `fitvr --uninstall`. It takes FitnessVR off SteamVR's list, so it no longer starts with SteamVR, and deletes
+  its settings and workout history; exports in Documents/FitnessVR stay. It never starts SteamVR. Same as
+  DesktopVR.
+
 ### Fixed
+- Pulling the trigger on the watch or the panel no longer also pulls it in the game: while the pointing hand is
+  on them, its trigger is FitnessVR's alone. It changes hands only once let go, so a trigger held in the game
+  never freezes there. The other hand is never touched. Same as DesktopVR.
+- The very first launch gets its trigger: FitnessVR tells SteamVR which app it is before loading its controls
+  (they could otherwise work only after a restart), and loads them again once if a tracked controller's trigger
+  still never arrives. Same as DesktopVR.
 - The pointer dot no longer lags behind the beam: it is its own overlay, moved in the same frame, and the beam
   rides on the controller, so both keep up with your hand at the headset's rate. The overlay now runs once per
   headset frame instead of 50 times a second. Beam and dot take the theme's accent.

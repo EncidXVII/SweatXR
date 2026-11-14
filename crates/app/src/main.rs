@@ -2,6 +2,7 @@
 //!   fitvr                  desktop window (and tray icon on Windows)
 //!   fitvr --overlay        the in-VR watch and panel; SteamVR starts this via the .vrmanifest
 //!   fitvr --register       register with SteamVR (auto-start follows the setting)
+//!   fitvr --uninstall      off SteamVR's list, data deleted (exports stay); see `uninstall`
 //! Overlay options: --fake-hr (scripted strap), --record FILE (pose trace), --exit-after SECS,
 //! --pin-watch (watch fixed in front of the headset, for tests without controllers).
 
@@ -14,6 +15,7 @@ mod overlay;
 mod setup;
 #[cfg(windows)]
 mod tray;
+mod uninstall;
 
 use std::error::Error;
 use std::path::PathBuf;
@@ -31,6 +33,7 @@ enum Mode {
     Desktop,
     Overlay(Opts),
     Register,
+    Uninstall,
 }
 
 fn parse(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
@@ -40,6 +43,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
         match a.as_str() {
             "--overlay" => mode = Some("overlay"),
             "--register" => mode = Some("register"),
+            "--uninstall" => mode = Some("uninstall"),
             "--fake-hr" => opts.fake_hr = true,
             "--pin-watch" => opts.pin_watch = true,
             "--record" => opts.record = Some(args.next().ok_or("--record needs a file")?.into()),
@@ -55,6 +59,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
     }
     Ok(match mode {
         Some("overlay") => Mode::Overlay(opts),
+        Some("uninstall") => Mode::Uninstall,
         Some(_) => Mode::Register,
         None => Mode::Desktop,
     })
@@ -69,9 +74,11 @@ fn main() {
         Ok(Mode::Register) => "register.log",
         _ => "desktop.log",
     };
+    // Uninstalling deletes the data folder, so it never opens a log there.
     let log = dirs
         .as_ref()
         .ok()
+        .filter(|_| !matches!(mode, Ok(Mode::Uninstall)))
         .and_then(|d| std::fs::File::create(d.data.join(log_name)).ok());
     let builder = tracing_subscriber::fmt().with_ansi(false).with_target(false);
     match log {
@@ -85,6 +92,7 @@ fn main() {
             Mode::Desktop => desktop::run(&dirs),
             Mode::Overlay(opts) => overlay::run(&dirs, &opts),
             Mode::Register => setup::register_utility(&dirs),
+            Mode::Uninstall => uninstall::run(&dirs),
         }
     })();
     if let Err(e) = result {
@@ -108,6 +116,7 @@ mod tests {
     fn parses_modes() {
         assert!(matches!(parse(args("")), Ok(Mode::Desktop)));
         assert!(matches!(parse(args("--register")), Ok(Mode::Register)));
+        assert!(matches!(parse(args("--uninstall")), Ok(Mode::Uninstall)));
         let Ok(Mode::Overlay(o)) = parse(args("--overlay --fake-hr --exit-after 30")) else {
             panic!("overlay")
         };

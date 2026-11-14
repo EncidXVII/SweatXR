@@ -110,6 +110,8 @@ pub struct ActiveActionSet {
     pub priority: i32,
 }
 
+/// `k_nActionSetOverlayGlobalPriorityMin`: input bound at this priority is not delivered to the game.
+pub const OVERLAY_PRIORITY: i32 = 0x0100_0000;
 pub const MAX_DEVICES: usize = 64;
 pub const HMD: u32 = 0;
 pub const INVALID_DEVICE: u32 = u32::MAX;
@@ -244,6 +246,15 @@ mod os {
 
 /// SteamVR install dir from `openvrpaths.vrpath`, which SteamVR rewrites on every start.
 pub fn runtime_dir() -> Option<PathBuf> {
+    vrpath("runtime")
+}
+
+/// SteamVR's config folder (`appconfig.json`, `vrappconfig`), from `openvrpaths.vrpath`.
+pub fn config_dir() -> Option<PathBuf> {
+    vrpath("config")
+}
+
+fn vrpath(entry: &str) -> Option<PathBuf> {
     let base = if cfg!(windows) {
         PathBuf::from(std::env::var_os("LOCALAPPDATA")?)
     } else {
@@ -253,7 +264,7 @@ pub fn runtime_dir() -> Option<PathBuf> {
     };
     let text = std::fs::read_to_string(base.join("openvr").join("openvrpaths.vrpath")).ok()?;
     let json: serde_json::Value = serde_json::from_str(&text).ok()?;
-    json["runtime"].as_array()?.first()?.as_str().map(PathBuf::from)
+    json[entry].as_array()?.first()?.as_str().map(PathBuf::from)
 }
 
 fn load() -> Result<*mut c_void, VrError> {
@@ -406,6 +417,25 @@ impl Apps {
             0 | ERR_APP_KEY_EXISTS => Ok(()),
             code => Err(err("AddApplicationManifest", code)),
         }
+    }
+
+    /// Takes the app off SteamVR's list (it no longer starts with SteamVR).
+    pub fn remove_manifest(&self, path: &Path) -> Result<(), VrError> {
+        let p = cstr("RemoveApplicationManifest", &path.to_string_lossy())?;
+        // SAFETY: valid C string.
+        check("RemoveApplicationManifest", unsafe {
+            (self.t.RemoveApplicationManifest)(p.as_ptr())
+        })
+    }
+
+    /// Tells SteamVR this process is the app `key`. Before the action manifest, so its bindings are filed under
+    /// the app's own key even when SteamVR did not start it (else the buttons only work after a restart).
+    pub fn identify(&self, key: &str) -> Result<(), VrError> {
+        let k = cstr("IdentifyApplication", key)?;
+        // SAFETY: valid C string; plain value call.
+        check("IdentifyApplication", unsafe {
+            (self.t.IdentifyApplication)(std::process::id(), k.as_ptr())
+        })
     }
 
     pub fn set_auto_launch(&self, key: &str, on: bool) -> Result<(), VrError> {
@@ -678,15 +708,25 @@ impl Vr {
         Ok(h)
     }
 
-    pub fn update_actions(&self, set: u64) -> Result<(), VrError> {
-        let mut active = ActiveActionSet {
+    /// Updates the action set once per hand (`hands`: their input source handles). A hand marked in `take` gets
+    /// overlay priority, so the game stops seeing that hand's bound buttons until it is let go of.
+    pub fn update_actions(&self, set: u64, hands: [u64; 2], take: [bool; 2]) -> Result<(), VrError> {
+        let mut active = [0, 1].map(|i| ActiveActionSet {
             action_set: set,
+            restricted_to_device: hands[i],
+            priority: if take[i] { OVERLAY_PRIORITY } else { 0 },
             ..Default::default()
-        };
-        // SAFETY: one set of the advertised size.
+        });
+        // SAFETY: two sets of the advertised size.
         check("UpdateActionState", unsafe {
-            (self.input.UpdateActionState)(&mut active, size_of::<ActiveActionSet>() as u32, 1)
+            (self.input.UpdateActionState)(active.as_mut_ptr(), size_of::<ActiveActionSet>() as u32, 2)
         })
+    }
+
+    /// SteamVR's dashboard is open (it takes the controller buttons while it is).
+    pub fn dashboard_visible(&self) -> bool {
+        // SAFETY: plain value call.
+        unsafe { (self.overlay.IsDashboardVisible)() }
     }
 
     /// (pressed, changed since last update) for a boolean action on one hand.

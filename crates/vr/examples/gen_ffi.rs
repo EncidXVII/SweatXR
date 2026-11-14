@@ -38,6 +38,7 @@ const USED: &[(&str, &[(&str, &str)])] = &[
             ("SetOverlayWidthInMeters", "(handle: u64, width: f32) -> u32"),
             ("SetOverlaySortOrder", "(handle: u64, order: u32) -> u32"),
             ("WaitFrameSync", "(timeout_ms: u32) -> u32"),
+            ("IsDashboardVisible", "() -> bool"),
             (
                 "SetOverlayTransformAbsolute",
                 "(handle: u64, origin: u32, m: *const HmdMatrix34) -> u32",
@@ -82,6 +83,8 @@ const USED: &[(&str, &[(&str, &str)])] = &[
                 "AddApplicationManifest",
                 "(path: *const c_char, temporary: bool) -> u32",
             ),
+            ("RemoveApplicationManifest", "(path: *const c_char) -> u32"),
+            ("IdentifyApplication", "(pid: u32, key: *const c_char) -> u32"),
             (
                 "GetApplicationKeyByProcessId",
                 "(pid: u32, key: *mut c_char, len: u32) -> u32",

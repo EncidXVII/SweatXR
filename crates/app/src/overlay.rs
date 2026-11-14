@@ -46,6 +46,8 @@ const HOME_NAME: &str = "SteamVR Home";
 const WATCH_PX: (u32, u32) = (560, 324);
 const WATCH_CARD_PX: f32 = 232.0;
 const PANEL_PX: (u32, u32) = (800, 600);
+/// A tracked pointing controller whose trigger has not reached us this long gets the actions loaded again (once).
+const UNBOUND_RELOAD: Duration = Duration::from_secs(3);
 
 #[derive(Clone, Copy)]
 enum Buzz {
@@ -132,6 +134,10 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     if let Err(e) = setup::register(vr.apps(), dirs, app.profile.auto_start) {
         tracing::warn!("register with SteamVR: {e}");
     }
+    // Before the actions, so even an overlay SteamVR did not start gets its buttons on the first launch.
+    if let Err(e) = vr.apps().identify(setup::APP_KEY) {
+        tracing::warn!("{e}");
+    }
     let input = Input::new(&vr, dirs)
         .map_err(|e| tracing::warn!("input actions: {e}; pointer disabled"))
         .ok();
@@ -193,6 +199,11 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     };
     let (mut last_frame, mut panel_alpha, mut on_watch) = (Instant::now(), 1.0f32, false);
     let (mut panel_open, mut select_down, mut scene_dirty, mut watch_stale) = (false, false, true, false);
+    // The pointing hand's trigger is the overlay's (not the game's) while it points at the watch or the panel;
+    // it changes hands only while let go, so the game never sees a held trigger freeze.
+    let mut trigger_taken = false;
+    // Safety net: since when the pointing hand's trigger has not reached us (unbound), for one manifest reload.
+    let (mut unbound_since, mut reloaded): (Option<Instant>, bool) = (None, false);
     let (mut loops, mut redraws) = (0u64, 0u64);
     // What SteamVR and the strap were last told, so a change from either window reaches them.
     let mut applied = Applied::from(&app.profile);
@@ -302,10 +313,31 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         let pointer_raw = pointer_device.and_then(|i| poses.get(i as usize)).and_then(valid);
         let pointer = tip(&vr, input.as_ref(), other(hand), pointer_raw);
         let pointer = pointer.as_ref();
+        let pointing = other(hand);
         let (pressed, changed) = match &input {
             Some(inp) => {
-                let _ = vr.update_actions(inp.set);
-                vr.digital(inp.select, inp.hand(other(hand))).unwrap_or_default()
+                let take = [Hand::Left, Hand::Right].map(|h| h == pointing && trigger_taken);
+                let _ = vr.update_actions(inp.set, inp.hands, take);
+                let select = vr.digital(inp.select, inp.hand(pointing));
+                let unbound = select.is_none() && pointer.is_some() && !vr.dashboard_visible();
+                unbound_since = if unbound {
+                    unbound_since.or(Some(loop_start))
+                } else {
+                    None
+                };
+                if !reloaded && unbound_since.is_some_and(|t| t.elapsed() >= UNBOUND_RELOAD) {
+                    reloaded = true;
+                    tracing::warn!("trigger not bound; loading the action manifest again");
+                    match setup::write_action_manifest(dirs) {
+                        Ok(m) => {
+                            if let Err(e) = vr.set_action_manifest(&m) {
+                                tracing::warn!("{e}");
+                            }
+                        }
+                        Err(e) => tracing::warn!("action manifest: {e}"),
+                    }
+                }
+                select.unwrap_or_default()
             }
             None => (false, false),
         };
@@ -351,6 +383,12 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 .map(|(_, hit)| (o, hit));
         }
         on_watch = !on_panel && beam.is_some();
+        let wants = on_watch || on_panel;
+        trigger_taken = if trigger_taken {
+            wants || pressed
+        } else {
+            wants && !pressed
+        };
         watch.ui.global::<AppState>().set_cursor_visible(on_watch);
         if on_watch && down {
             panel_open = !panel_open;
