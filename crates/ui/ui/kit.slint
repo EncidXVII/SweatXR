@@ -174,7 +174,6 @@ export component IconButton inherits Rectangle {
         d: root.icon;
         width: Mode.desktop ? 20px : 24px;
         height: self.width;
-        stroke-width: 2.6px;
         color: root.enabled ? Tokens.ink : Tokens.dim;
     }
     hit := Hit {
@@ -306,7 +305,6 @@ export component Steps inherits Rectangle {
             d: k == 0 ? Icons.minus : Icons.plus;
             width: Mode.desktop ? 18px : 24px;
             height: self.width;
-            stroke-width: 2.4px;
         }
         h := Hit {
             clicked => {

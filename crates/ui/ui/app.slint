@@ -174,7 +174,6 @@ export component WatchView inherits Window {
                             d: Icons.down;
                             width: 24px;
                             height: 24px;
-                            stroke-width: 2.4px;
                             color: Tokens.on-accent;
                         }
                     }
@@ -323,7 +322,6 @@ export component PanelView inherits Window {
                         }
                         Icon {
                             d: Icons.close;
-                            stroke-width: 2.4px;
                         }
                         close-hit := Hit {
                             clicked => {
@@ -383,7 +381,6 @@ component NavItem inherits Rectangle {
                 d: root.icon;
                 width: 20px;
                 height: 20px;
-                stroke-width: 2px;
                 color: root.on ? Tokens.accent : Tokens.ink2;
             }
         }
