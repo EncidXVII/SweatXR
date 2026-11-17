@@ -328,8 +328,8 @@ fn desktop_states_render_at_minimum_size() {
         hr_status: Status::Connecting,
         devices: &devices,
     };
-    // The desktop window's minimum size: every page must still fit.
-    let mut desk = Surface::new(DesktopWindow::new, 1024, 720).expect("desktop");
+    // The desktop window's minimum size: compact sidebar, one column, pages scroll.
+    let mut desk = Surface::new(DesktopWindow::new, 760, 520).expect("desktop");
     desk.ui.global::<Mode>().set_reduce_motion(true);
     desk.ui.global::<Mode>().set_desktop(true);
     refresh(
@@ -351,7 +351,43 @@ fn desktop_states_render_at_minimum_size() {
     insta::assert_binary_snapshot!("desktop_min_export_saved.png", png(&mut desk));
     desk.ui.set_tab(3);
     insta::assert_binary_snapshot!("desktop_min_settings_device.png", png(&mut desk));
-    // Hover state: pointer resting on the History nav item.
-    desk.pointer(100.0, 154.0, Pointer::Move);
+    // Hover state: pointer resting on the History nav item (icon only at this width).
+    desk.pointer(36.0, 154.0, Pointer::Move);
     insta::assert_binary_snapshot!("desktop_min_hover.png", png(&mut desk));
+    // Scrolled to the bottom of Settings: the last controls are reachable.
+    desk.pointer(400.0, 300.0, Pointer::Scroll(-2000));
+    insta::assert_binary_snapshot!("desktop_min_settings_scrolled.png", png(&mut desk));
+
+    // First run at the minimum size: the form and its button still fit.
+    let mut first = Surface::new(DesktopWindow::new, 760, 520).expect("desktop");
+    first.ui.global::<Mode>().set_reduce_motion(true);
+    first.ui.global::<Mode>().set_desktop(true);
+    let fresh = Profile::default();
+    refresh(
+        &first.ui.global::<AppState>(),
+        &store,
+        &fresh,
+        NOW,
+        &Nav::default(),
+        &live,
+    )
+    .expect("refresh");
+    insta::assert_binary_snapshot!("desktop_min_first_run.png", png(&mut first));
+
+    // A maximized 1440p window: cards keep sensible sizes instead of stretching.
+    let mut big = Surface::new(DesktopWindow::new, 1700, 890).expect("desktop");
+    big.ui.global::<Mode>().set_reduce_motion(true);
+    big.ui.global::<Mode>().set_desktop(true);
+    refresh(
+        &big.ui.global::<AppState>(),
+        &store,
+        &p,
+        NOW,
+        &Nav::default(),
+        &live,
+    )
+    .expect("refresh");
+    insta::assert_binary_snapshot!("desktop_large_today.png", png(&mut big));
+    big.ui.set_tab(3);
+    insta::assert_binary_snapshot!("desktop_large_settings.png", png(&mut big));
 }

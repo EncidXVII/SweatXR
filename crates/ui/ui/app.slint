@@ -355,7 +355,16 @@ component NavItem inherits Rectangle {
     in property <string> label;
     in property <string> icon;
     in property <bool> on;
+    // Icon only, for a narrow window.
+    in property <bool> compact;
     callback clicked();
+    // Named for screen readers, which matters most when only the icon shows.
+    accessible-role: tab;
+    accessible-label: root.label;
+    accessible-item-selected: root.on;
+    accessible-action-default => {
+        root.clicked();
+    }
     height: 44px;
     border-radius: Tokens.radius-control;
     background: root.on ? Tokens.raised : hit.pressed ? Tokens.line : hit.has-hover ? Tokens.raised : transparent;
@@ -367,6 +376,7 @@ component NavItem inherits Rectangle {
         padding-left: Tokens.space-3;
         padding-right: Tokens.space-3;
         spacing: Tokens.space-3;
+        alignment: root.compact ? center : stretch;
         VerticalLayout {
             alignment: center;
             Icon {
@@ -377,7 +387,7 @@ component NavItem inherits Rectangle {
                 color: root.on ? Tokens.accent : Tokens.ink2;
             }
         }
-        Text {
+        if !root.compact: Text {
             text: root.label;
             color: root.on ? Tokens.ink : Tokens.ink2;
             font-size: Tokens.type-body;
@@ -395,17 +405,20 @@ component NavItem inherits Rectangle {
 
 export component DesktopWindow inherits Window {
     in-out property <int> tab;
+    // Below this the sidebar shows icons only and pages stack into one column.
+    out property <bool> narrow: self.width < 1024px;
     title: "FitnessVR";
     icon: @image-url("../../../packaging/brand/fitnessvr-256.png");
     preferred-width: 1200px;
     preferred-height: 800px;
-    min-width: 1024px;
-    min-height: 720px;
+    // Small enough to snap side by side on a 1440p screen at 150% and to fit a 1080p laptop.
+    min-width: 760px;
+    min-height: 520px;
     background: Tokens.bg;
     if AppState.first-run: FirstRunPage { }
     if !AppState.first-run: HorizontalLayout {
         Rectangle {
-            width: 216px;
+            width: root.narrow ? 72px : 216px;
             background: Tokens.surface;
             VerticalLayout {
                 padding-top: Tokens.space-5;
@@ -414,10 +427,11 @@ export component DesktopWindow inherits Window {
                 padding-right: Tokens.space-3;
                 spacing: Tokens.space-1;
                 HorizontalLayout {
-                    padding-left: Tokens.space-3;
+                    padding-left: root.narrow ? 0 : Tokens.space-3;
                     padding-top: Tokens.space-1;
                     padding-bottom: Tokens.space-5;
                     spacing: Tokens.space-2;
+                    alignment: root.narrow ? center : start;
                     // The mark in the theme's accent, as tall as the wordmark's capitals.
                     Image {
                         source: @image-url("../../../packaging/brand/fitnessvr-mark.svg");
@@ -426,7 +440,7 @@ export component DesktopWindow inherits Window {
                         height: self.width;
                         y: (parent.height - self.height) / 2;
                     }
-                    Text {
+                    if !root.narrow: Text {
                         vertical-alignment: center;
                         text: "FITNESSVR";
                         color: Tokens.ink;
@@ -442,15 +456,17 @@ export component DesktopWindow inherits Window {
                 ]: NavItem {
                     label: t.label;
                     icon: t.icon;
+                    compact: root.narrow;
                     on: i == root.tab;
                     clicked => {
                         root.tab = i;
+                        flick.content-y = 0;
                     }
                 }
                 Rectangle {
                     vertical-stretch: 1;
                 }
-                HorizontalLayout {
+                if !root.narrow: HorizontalLayout {
                     padding-left: Tokens.space-3;
                     padding-right: Tokens.space-3;
                     Text {
@@ -463,16 +479,39 @@ export component DesktopWindow inherits Window {
                 }
             }
         }
-        VerticalLayout {
+        // Pages fill the window when it is tall enough and scroll when it is not.
+        Rectangle {
             horizontal-stretch: 1;
-            padding-top: 28px;
-            padding-bottom: 28px;
-            padding-left: 36px;
-            padding-right: 36px;
-            if root.tab == 0: DeskToday { }
-            if root.tab == 1: DeskHistory { }
-            if root.tab == 2: DeskSessions { }
-            if root.tab == 3: DeskSettings { }
+            flick := Flickable {
+                content-width: self.width;
+                content-height: max(self.height, page.min-height);
+                page := VerticalLayout {
+                    width: flick.width;
+                    height: flick.content-height;
+                    padding-top: 28px;
+                    padding-bottom: 28px;
+                    padding-left: root.narrow ? 24px : 36px;
+                    padding-right: root.narrow ? 24px : 36px;
+                    if root.tab == 0: DeskToday {
+                        narrow: root.narrow;
+                    }
+                    if root.tab == 1: DeskHistory {
+                        narrow: root.narrow;
+                    }
+                    if root.tab == 2: DeskSessions { }
+                    if root.tab == 3: DeskSettings {
+                        narrow: root.narrow;
+                    }
+                }
+            }
+            if flick.content-height > flick.height + 1px: Rectangle {
+                x: parent.width - 8px;
+                width: 4px;
+                border-radius: 2px;
+                background: Tokens.edge;
+                height: max(32px, flick.height * flick.height / flick.content-height);
+                y: (flick.height - self.height) * (-flick.content-y) / (flick.content-height - flick.height);
+            }
         }
     }
 }

@@ -611,6 +611,7 @@ component DeskHead inherits HorizontalLayout {
 
 component Period inherits HorizontalLayout {
     in property <string> label;
+    in property <length> label-width: 150px;
     in property <bool> has-next;
     callback step(int);
     spacing: Tokens.space-2;
@@ -623,7 +624,8 @@ component Period inherits HorizontalLayout {
     }
     Body {
         text: root.label;
-        width: 150px;
+        width: root.label-width;
+        vertical-alignment: center;
         horizontal-alignment: center;
     }
     IconButton {
@@ -682,7 +684,119 @@ component Tile inherits Rectangle {
     }
 }
 
+// Ring, active minutes and heart rate.
+component TodaySummary inherits Rectangle {
+    border-radius: Tokens.radius-group;
+    background: Tokens.raised;
+    VerticalLayout {
+        padding: Tokens.space-5;
+        spacing: Tokens.space-5;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 240px;
+                height: 240px;
+                Ring {
+                    progress: AppState.progress;
+                    thickness: 18px;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: Tokens.space-1;
+                    Big {
+                        text: AppState.kcal-text;
+                        horizontal-alignment: center;
+                    }
+                    Caption {
+                        text: AppState.goal-text;
+                        font-size: Tokens.type-body;
+                        color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: Tokens.space-3;
+            Tile {
+                label: "Active";
+                value: AppState.active-text;
+            }
+            Tile {
+                label: "Heart rate";
+                value: AppState.hr-shown ? AppState.hr-text : "No strap";
+            }
+        }
+    }
+}
+
+// Per-game list and the week.
+component TodayDetail inherits VerticalLayout {
+    horizontal-stretch: 1;
+    spacing: Tokens.space-3;
+    alignment: start;
+    Caption {
+        text: "By game";
+    }
+    Group {
+        vertical-stretch: 0;
+        if AppState.games.length == 0: Rectangle {
+            min-height: 72px;
+            Body {
+                x: Tokens.space-5;
+                width: parent.width - 2 * Tokens.space-5;
+                text: AppState.empty-text;
+                color: Tokens.ink2;
+                wrap: word-wrap;
+            }
+        }
+        for game[i] in AppState.games: GameRowView {
+            game: game;
+            divider: i > 0;
+            visible: i < 3;
+            height: i < 3 ? self.preferred-height : 0px;
+        }
+    }
+    Caption {
+        text: "This week";
+    }
+    Rectangle {
+        min-height: 240px;
+        // Bars stay readable, not a wall, on a maximized window.
+        preferred-height: 320px;
+        border-radius: Tokens.radius-group;
+        background: Tokens.raised;
+        VerticalLayout {
+            padding: Tokens.space-5;
+            spacing: Tokens.space-4;
+            HorizontalLayout {
+                spacing: Tokens.space-7;
+                alignment: start;
+                Figure {
+                    label: "Burned";
+                    value: AppState.week-kcal;
+                }
+                Figure {
+                    label: "Active min";
+                    value: AppState.week-active;
+                }
+                Figure {
+                    label: "Goal days";
+                    value: AppState.week-goal-days;
+                }
+            }
+            BarChart {
+                vertical-stretch: 1;
+                gap: 14px;
+                bars: AppState.week-bars;
+            }
+        }
+    }
+}
+
 export component DeskToday inherits VerticalLayout {
+    // One column: the summary above the details.
+    in property <bool> narrow;
     spacing: Tokens.space-5;
     DeskHead {
         title: "TODAY";
@@ -692,121 +806,31 @@ export component DeskToday inherits VerticalLayout {
             color: Tokens.accent;
         }
     }
-    HorizontalLayout {
+    if root.narrow: VerticalLayout {
+        vertical-stretch: 1;
+        spacing: Tokens.space-5;
+        TodaySummary { }
+        TodayDetail {
+            vertical-stretch: 1;
+        }
+    }
+    if !root.narrow: HorizontalLayout {
         vertical-stretch: 1;
         spacing: Tokens.space-5;
         VerticalLayout {
             width: 320px;
             alignment: start;
-            Rectangle {
-                border-radius: Tokens.radius-group;
-                background: Tokens.raised;
-                VerticalLayout {
-                    padding: Tokens.space-5;
-                    spacing: Tokens.space-5;
-                    HorizontalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 240px;
-                            height: 240px;
-                            Ring {
-                                progress: AppState.progress;
-                                thickness: 18px;
-                            }
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: Tokens.space-1;
-                                Big {
-                                    text: AppState.kcal-text;
-                                    horizontal-alignment: center;
-                                }
-                                Caption {
-                                    text: AppState.goal-text;
-                                    font-size: Tokens.type-body;
-                                    color: AppState.goal-met ? Tokens.accent : Tokens.ink2;
-                                    horizontal-alignment: center;
-                                }
-                            }
-                        }
-                    }
-                    HorizontalLayout {
-                        spacing: Tokens.space-3;
-                        Tile {
-                            label: "Active";
-                            value: AppState.active-text;
-                        }
-                        Tile {
-                            label: "Heart rate";
-                            value: AppState.hr-shown ? AppState.hr-text : "No strap";
-                        }
-                    }
-                }
-            }
+            TodaySummary { }
         }
-        VerticalLayout {
+        TodayDetail {
             horizontal-stretch: 1;
-            spacing: Tokens.space-3;
-            Caption {
-                text: "By game";
-            }
-            Group {
-                vertical-stretch: 0;
-                if AppState.games.length == 0: Rectangle {
-                    min-height: 72px;
-                    Body {
-                        x: Tokens.space-5;
-                        width: parent.width - 2 * Tokens.space-5;
-                        text: AppState.empty-text;
-                        color: Tokens.ink2;
-                        wrap: word-wrap;
-                    }
-                }
-                for game[i] in AppState.games: GameRowView {
-                    game: game;
-                    divider: i > 0;
-                    visible: i < 3;
-                    height: i < 3 ? self.preferred-height : 0px;
-                }
-            }
-            Caption {
-                text: "This week";
-            }
-            Rectangle {
-                vertical-stretch: 1;
-                min-height: 200px;
-                border-radius: Tokens.radius-group;
-                background: Tokens.raised;
-                VerticalLayout {
-                    padding: Tokens.space-5;
-                    spacing: Tokens.space-4;
-                    HorizontalLayout {
-                        spacing: Tokens.space-7;
-                        alignment: start;
-                        Figure {
-                            label: "Burned";
-                            value: AppState.week-kcal;
-                        }
-                        Figure {
-                            label: "Active min";
-                            value: AppState.week-active;
-                        }
-                        Figure {
-                            label: "Goal days";
-                            value: AppState.week-goal-days;
-                        }
-                    }
-                    BarChart {
-                        vertical-stretch: 1;
-                        gap: 14px;
-                        bars: AppState.week-bars;
-                    }
-                }
-            }
         }
     }
 }
 
 export component DeskHistory inherits VerticalLayout {
+    // Tighter controls so the header stays on one line.
+    in property <bool> narrow;
     spacing: Tokens.space-5;
     DeskHead {
         title: "HISTORY";
@@ -814,13 +838,14 @@ export component DeskHistory inherits VerticalLayout {
             options: ["Day", "Week", "Month"];
             selected: AppState.history-range;
             track: Tokens.raised;
-            cell: 84px;
+            cell: root.narrow ? 64px : 84px;
             picked(i) => {
                 AppState.history-range = i;
                 AppState.history-range-changed(i);
             }
         }
         Period {
+            label-width: root.narrow ? 120px : 150px;
             label: AppState.history-label;
             has-next: AppState.history-has-next;
             step(d) => {
@@ -967,141 +992,154 @@ export component DeskSessions inherits VerticalLayout {
     }
 }
 
+// Body, watch and look settings.
+component SettingsBody inherits VerticalLayout {
+    spacing: Tokens.space-2;
+    alignment: start;
+    Caption {
+        text: "Body";
+    }
+    Group {
+        WeightRow { }
+        HeightRow {
+            divider: true;
+        }
+        AgeRow {
+            divider: true;
+        }
+        SexRow {
+            divider: true;
+        }
+        RestingRow {
+            divider: true;
+        }
+    }
+    Caption {
+        text: "Watch";
+    }
+    Group {
+        GoalRow { }
+        HandRow {
+            label: "Watch hand";
+            divider: true;
+        }
+        UnitsRow {
+            divider: true;
+        }
+    }
+    Caption {
+        text: "Look";
+    }
+    Group {
+        ThemeRow { }
+    }
+}
+
+// Strap, auto-start and data.
+component SettingsDevice inherits VerticalLayout {
+    spacing: Tokens.space-2;
+    alignment: start;
+    Caption {
+        text: "Device";
+    }
+    Group {
+        AutoStartRow { }
+        Row {
+            divider: true;
+            label: "Heart rate strap";
+            sub: AppState.hr-status;
+            VerticalLayout {
+                alignment: center;
+                Button {
+                    text: AppState.hr-scanning ? "Scanning" : "Scan";
+                    enabled: !AppState.hr-scanning;
+                    clicked => {
+                        AppState.hr-scan();
+                    }
+                }
+            }
+        }
+        for device in AppState.hr-devices: DeviceRow {
+            device: device;
+            divider: true;
+        }
+    }
+    Caption {
+        text: "Data";
+    }
+    Group {
+        VerticalLayout {
+            padding: Tokens.space-5;
+            spacing: Tokens.space-3;
+            Caption {
+                text: "Everything stays on this computer, in one file:";
+                font-size: Tokens.type-body;
+            }
+            Rectangle {
+                border-radius: Tokens.radius-small;
+                background: Tokens.bg;
+                HorizontalLayout {
+                    padding: Tokens.space-3;
+                    Text {
+                        text: AppState.data-path;
+                        color: Tokens.ink;
+                        font-size: Tokens.type-label;
+                        font-family: Tokens.font-body;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: Tokens.space-3;
+                alignment: start;
+                Button {
+                    text: "Open folder";
+                    clicked => {
+                        AppState.open-data-folder();
+                    }
+                }
+                delete := DeleteButton { }
+            }
+            if delete.armed: Text {
+                text: "Second click deletes every day and session. It can't be undone.";
+                color: Tokens.danger-ink;
+                font-size: Tokens.type-small;
+                font-family: Tokens.font-body;
+                wrap: word-wrap;
+            }
+            if AppState.data-status != "": Caption {
+                text: AppState.data-status;
+            }
+        }
+    }
+}
+
 export component DeskSettings inherits VerticalLayout {
-    property <bool> armed;
+    // One column instead of two.
+    in property <bool> narrow;
     spacing: Tokens.space-5;
     DeskHead {
         title: "SETTINGS";
         sub: "Changes save at once";
     }
-    HorizontalLayout {
+    if root.narrow: VerticalLayout {
+        spacing: Tokens.space-5;
+        alignment: start;
+        SettingsBody { }
+        SettingsDevice { }
+    }
+    if !root.narrow: HorizontalLayout {
         spacing: Tokens.space-5;
         vertical-stretch: 1;
-        VerticalLayout {
-            spacing: Tokens.space-2;
-            alignment: start;
+        // Equal columns: both start from nothing and share the width.
+        SettingsBody {
             horizontal-stretch: 1;
-            // Equal columns: both start from nothing and share the width.
             preferred-width: 1px;
-            // Room for "Resting heart rate" beside its stepper at the window's minimum width.
             min-width: 348px;
-            Caption {
-                text: "Body";
-            }
-            Group {
-                WeightRow { }
-                HeightRow {
-                    divider: true;
-                }
-                AgeRow {
-                    divider: true;
-                }
-                SexRow {
-                    divider: true;
-                }
-                RestingRow {
-                    divider: true;
-                }
-            }
-            Caption {
-                text: "Watch";
-            }
-            Group {
-                GoalRow { }
-                HandRow {
-                    label: "Watch hand";
-                    divider: true;
-                }
-                UnitsRow {
-                    divider: true;
-                }
-            }
-            Caption {
-                text: "Look";
-            }
-            Group {
-                ThemeRow { }
-            }
         }
-        VerticalLayout {
-            spacing: Tokens.space-2;
-            alignment: start;
+        SettingsDevice {
             horizontal-stretch: 1;
-            // Equal columns: both start from nothing and share the width.
             preferred-width: 1px;
-            Caption {
-                text: "Device";
-            }
-            Group {
-                AutoStartRow { }
-                Row {
-                    divider: true;
-                    label: "Heart rate strap";
-                    sub: AppState.hr-status;
-                    VerticalLayout {
-                        alignment: center;
-                        Button {
-                            text: AppState.hr-scanning ? "Scanning" : "Scan";
-                            enabled: !AppState.hr-scanning;
-                            clicked => {
-                                AppState.hr-scan();
-                            }
-                        }
-                    }
-                }
-                for device in AppState.hr-devices: DeviceRow {
-                    device: device;
-                    divider: true;
-                }
-            }
-            Caption {
-                text: "Data";
-            }
-            Group {
-                VerticalLayout {
-                    padding: Tokens.space-5;
-                    spacing: Tokens.space-3;
-                    Caption {
-                        text: "Everything stays on this computer, in one file:";
-                        font-size: Tokens.type-body;
-                    }
-                    Rectangle {
-                        border-radius: Tokens.radius-small;
-                        background: Tokens.bg;
-                        HorizontalLayout {
-                            padding: Tokens.space-3;
-                            Text {
-                                text: AppState.data-path;
-                                color: Tokens.ink;
-                                font-size: Tokens.type-label;
-                                font-family: Tokens.font-body;
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
-                    HorizontalLayout {
-                        spacing: Tokens.space-3;
-                        alignment: start;
-                        Button {
-                            text: "Open folder";
-                            clicked => {
-                                AppState.open-data-folder();
-                            }
-                        }
-                        delete := DeleteButton { }
-                    }
-                    if delete.armed: Text {
-                        text: "Second click deletes every day and session. It can't be undone.";
-                        color: Tokens.danger-ink;
-                        font-size: Tokens.type-small;
-                        font-family: Tokens.font-body;
-                        wrap: word-wrap;
-                    }
-                    if AppState.data-status != "": Caption {
-                        text: AppState.data-status;
-                    }
-                }
-            }
         }
     }
 }

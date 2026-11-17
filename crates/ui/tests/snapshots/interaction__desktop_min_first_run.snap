@@ -1,0 +1,6 @@
+---
+source: crates/ui/tests/interaction.rs
+expression: png(&mut first)
+extension: png
+snapshot_kind: binary
+---

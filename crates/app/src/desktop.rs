@@ -83,6 +83,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     });
 
     ui.show()?;
+    fit_to_screen(&ui);
     if cfg!(windows) {
         slint::run_event_loop_until_quit()?;
     } else {
@@ -99,4 +100,45 @@ fn register() {
     {
         tracing::warn!("register: {e}");
     }
+}
+
+/// The preferred size suits 1440p and up; on a 1080p laptop at 150% it would run past the
+/// taskbar. Shrinks and centres the window when it does not fit (runs once the window exists).
+fn fit_to_screen(ui: &DesktopWindow) {
+    let weak = ui.as_weak();
+    Timer::single_shot(Duration::from_millis(50), move || {
+        if let Some(ui) = weak.upgrade() {
+            fit_now(&ui);
+        }
+    });
+}
+
+fn fit_now(ui: &DesktopWindow) {
+    use slint::winit_030::WinitWindowAccessor;
+    use slint::winit_030::winit::dpi::{PhysicalPosition, PhysicalSize};
+    ui.window().with_winit_window(|w| {
+        let Some(monitor) = w.current_monitor() else {
+            return;
+        };
+        let (screen, origin) = (monitor.size(), monitor.position());
+        let (outer, inner) = (w.outer_size(), w.inner_size());
+        // Leave room for the taskbar and a margin.
+        let max = PhysicalSize::new(screen.width * 92 / 100, screen.height * 88 / 100);
+        if outer.width <= max.width && outer.height <= max.height {
+            return;
+        }
+        let fit = PhysicalSize::new(outer.width.min(max.width), outer.height.min(max.height));
+        let frame = PhysicalSize::new(
+            outer.width.saturating_sub(inner.width),
+            outer.height.saturating_sub(inner.height),
+        );
+        let _ = w.request_inner_size(PhysicalSize::new(
+            fit.width - frame.width,
+            fit.height - frame.height,
+        ));
+        w.set_outer_position(PhysicalPosition::new(
+            origin.x + (screen.width - fit.width) as i32 / 2,
+            origin.y + (screen.height - fit.height) as i32 / 2,
+        ));
+    });
 }

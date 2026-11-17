@@ -45,6 +45,8 @@ pub enum Pointer {
     Down,
     Up,
     Leave,
+    /// Wheel, in logical pixels; negative scrolls the content up (towards the end).
+    Scroll(i32),
 }
 
 pub struct Surface<C: ComponentHandle> {
@@ -132,6 +134,11 @@ impl<C: ComponentHandle> Surface<C> {
             Pointer::Down => WindowEvent::PointerPressed { position, button },
             Pointer::Up => WindowEvent::PointerReleased { position, button },
             Pointer::Leave => WindowEvent::PointerExited,
+            Pointer::Scroll(dy) => WindowEvent::PointerScrolled {
+                position,
+                delta_x: 0.0,
+                delta_y: dy as f32,
+            },
         };
         let _ = self.window.window().dispatch_event_with_result(event);
     }
