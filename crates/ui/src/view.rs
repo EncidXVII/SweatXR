@@ -386,7 +386,6 @@ fn rows(games: &[GameTotal], n: usize) -> ModelRc<GameRow> {
 }
 
 fn bars(store: &Store, from: Day, end: Day, today: Day, range: Range, goal: f32) -> Result<Vec<Bar>> {
-    const DAYS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
     let values: Vec<(String, f32, bool, bool)> = match range {
         Range::Day => {
             let hours = store.hours(end)?;
@@ -396,7 +395,7 @@ fn bars(store: &Store, from: Day, end: Day, today: Day, range: Range, goal: f32)
         Range::Week | Range::Month => {
             let label = |d: Day| match range {
                 _ if d == today => "Today".to_owned(),
-                Range::Week => DAYS[weekday(d) as usize].to_owned(),
+                Range::Week => WEEKDAYS[weekday(d) as usize].to_owned(),
                 // Every week back from the end, so the last label is never crowded by "Today".
                 _ if (end - d) % 7 == 0 && end - d >= 7 => date(d),
                 _ => String::new(),

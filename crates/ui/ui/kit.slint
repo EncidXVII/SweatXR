@@ -37,6 +37,15 @@ export component Caption inherits Text {
     vertical-alignment: center;
 }
 
+// A heading for the card below it, after another card: more room above than below, so it reads with its own card.
+export component SectionHead inherits VerticalLayout {
+    in property <string> text;
+    padding-top: Tokens.space-4;
+    Caption {
+        text: root.text;
+    }
+}
+
 export component Body inherits Text {
     color: Tokens.ink;
     font-size: Tokens.type-body;

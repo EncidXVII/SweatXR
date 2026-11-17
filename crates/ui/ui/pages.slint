@@ -1,6 +1,6 @@
 import { Tokens, Mode } from "@tokens";
 import { AppState, HrDevice, SessionRow } from "state.slint";
-import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Group, Hit, Icon, IconButton, Icons, Meter, Motion, Ring, Row, Segmented, Steps, StepRow, SwitchRow, Title } from "kit.slint";
+import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Group, Hit, Icon, IconButton, Icons, Meter, Motion, Ring, Row, SectionHead, Segmented, Steps, StepRow, SwitchRow, Title } from "kit.slint";
 
 // Profile rows shared by first run, the VR panel and the desktop. Rust clamps and saves on every change.
 export component WeightRow inherits StepRow {
@@ -107,11 +107,12 @@ export component AutoStartRow inherits SwitchRow {
     }
 }
 
-// Accent colour: one dot per theme, the chosen one ringed and named under the label.
+// Accent colour: one dot per theme, the chosen one ringed (and named under the label on the desktop; in VR the
+// row has no room for a second line beside full-size targets).
 export component ThemeRow inherits Row {
     label: "Theme";
-    sub: Tokens.theme-names[AppState.profile.theme];
-    property <length> dot: Mode.desktop ? 16px : 36px;
+    sub: Mode.desktop ? Tokens.theme-names[AppState.profile.theme] : "";
+    property <length> dot: Mode.desktop ? 16px : 38px;
     VerticalLayout {
         alignment: center;
         HorizontalLayout {
@@ -354,9 +355,18 @@ component DeviceRow inherits Row {
     clicked => {
         AppState.hr-pick(root.device.id);
     }
-    Caption {
-        text: root.device.chosen ? "In use" : "Use";
-        color: root.device.chosen ? Tokens.accent : Tokens.ink2;
+    if root.device.chosen: Caption {
+        text: "In use";
+        color: Tokens.accent;
+    }
+    if !root.device.chosen: VerticalLayout {
+        alignment: center;
+        Button {
+            text: "Use";
+            clicked => {
+                AppState.hr-pick(root.device.id);
+            }
+        }
     }
 }
 
@@ -404,7 +414,7 @@ export component PanelStrap inherits VerticalLayout {
             divider: i > 0;
         }
     }
-    Caption {
+    SectionHead {
         text: "Calibration";
     }
     Calibration { }
@@ -450,9 +460,6 @@ export component PanelSetup inherits VerticalLayout {
         ThemeRow {
             divider: true;
         }
-    }
-    Caption {
-        text: "Your data";
     }
     Group {
         HorizontalLayout {
@@ -757,7 +764,7 @@ component TodayDetail inherits VerticalLayout {
             height: i < 3 ? self.preferred-height : 0px;
         }
     }
-    Caption {
+    SectionHead {
         text: "This week";
     }
     Rectangle {
@@ -775,10 +782,12 @@ component TodayDetail inherits VerticalLayout {
                 Figure {
                     label: "Burned";
                     value: AppState.week-kcal;
+                    unit: "kcal";
                 }
                 Figure {
-                    label: "Active min";
+                    label: "Active";
                     value: AppState.week-active;
+                    unit: "min";
                 }
                 Figure {
                     label: "Goal days";
@@ -1014,7 +1023,7 @@ component SettingsBody inherits VerticalLayout {
             divider: true;
         }
     }
-    Caption {
+    SectionHead {
         text: "Watch";
     }
     Group {
@@ -1027,7 +1036,7 @@ component SettingsBody inherits VerticalLayout {
             divider: true;
         }
     }
-    Caption {
+    SectionHead {
         text: "Look";
     }
     Group {
@@ -1064,7 +1073,7 @@ component SettingsDevice inherits VerticalLayout {
             divider: true;
         }
     }
-    Caption {
+    SectionHead {
         text: "Data";
     }
     Group {
