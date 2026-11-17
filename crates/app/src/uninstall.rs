@@ -61,7 +61,7 @@ fn uninstall(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     match std::fs::remove_dir_all(&dirs.data) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
             return Err(format!(
-                "{}: {e}. Quit FitnessVR (tray icon > Quit), then try again.",
+                "{}: {e}. Quit FitnessVR (Windows: tray icon > Quit; Linux: close its window), then try again.",
                 dirs.data.display()
             )
             .into());

@@ -64,9 +64,10 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
    on your wrist right away, and from then on it starts with SteamVR. Turn that off in
    Settings > Device > Start with SteamVR.
 
-**Uninstall:** quit FitnessVR (tray icon > Quit) and SteamVR, then run `Uninstall FitnessVR.cmd` in its folder
-(Windows) or `./uninstall.sh` (Linux; or `fitvr --uninstall`). It takes FitnessVR off SteamVR's list and deletes
-its settings and workout history; exports in `Documents/FitnessVR` stay. Then delete the folder.
+**Uninstall:** quit FitnessVR (Windows: tray icon > Quit; Linux: close its window) and SteamVR, then run
+`Uninstall FitnessVR.cmd` in its folder (Windows) or `./uninstall.sh` (Linux; or `fitvr --uninstall`). It takes
+FitnessVR off SteamVR's list and deletes its settings and workout history; exports in `Documents/FitnessVR` stay.
+Then delete the folder.
 
 ## Use
 
