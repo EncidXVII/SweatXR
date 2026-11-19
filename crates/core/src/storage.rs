@@ -351,7 +351,6 @@ impl Store {
         .collect()
     }
 
-    /// (intensity, kcal/min) pairs from seconds with a heart rate, newest first.
     /// Seconds of play recorded with a heart rate, for the calibration progress line.
     pub fn hr_seconds(&self) -> Result<u32> {
         self.conn
@@ -374,6 +373,7 @@ impl Store {
         (ts + i64::from((self.tz)(ts))).rem_euclid(86_400)
     }
 
+    /// (intensity, kcal/min) pairs from seconds with a heart rate, newest first.
     pub fn calibration_points(&self, limit: u32) -> Result<Vec<(f32, f32)>> {
         let mut st = self.conn.prepare_cached(
             "SELECT intensity, kcal * 60 FROM samples WHERE hr IS NOT NULL ORDER BY ts DESC LIMIT ?1",

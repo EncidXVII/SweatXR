@@ -217,10 +217,12 @@ async fn stream(c: &Adapter, id: &str, state: &State, rx: &mut mpsc::UnboundedRe
             p.connect().await?;
         }
         p.discover_services().await?;
-        let ch = p.characteristics().into_iter().find(|ch| ch.uuid == measurement);
-        if let Some(ch) = ch {
-            p.subscribe(&ch).await?;
-        }
+        let ch = p
+            .characteristics()
+            .into_iter()
+            .find(|ch| ch.uuid == measurement)
+            .ok_or(btleplug::Error::NoSuchCharacteristic)?;
+        p.subscribe(&ch).await?;
         p.notifications().await
     };
     let mut notes = match subscribed.await {

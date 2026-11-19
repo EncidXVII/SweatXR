@@ -259,6 +259,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             }
             // Picks up the desktop window's edits.
             app.reload_profile();
+            meter.set_height(app.profile.height_cm);
             app.show(&watch.ui.global::<AppState>(), now);
             if panel_open {
                 app.show(&panel.ui.global::<AppState>(), now);

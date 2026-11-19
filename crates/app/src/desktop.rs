@@ -95,10 +95,11 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
 /// Registers the overlay with SteamVR and applies "Start with SteamVR" (`fitvr --register`, in its
 /// own process: SteamVR's API lets one connection per process). Harmless when SteamVR is off.
 fn register() {
-    if let Ok(exe) = std::env::current_exe()
-        && let Err(e) = std::process::Command::new(exe).arg("--register").spawn()
-    {
-        tracing::warn!("register: {e}");
+    let Ok(exe) = std::env::current_exe() else { return };
+    match std::process::Command::new(exe).arg("--register").spawn() {
+        // Waited for off the UI thread, so the finished child is not left behind as a zombie on Linux.
+        Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
+        Err(e) => tracing::warn!("register: {e}"),
     }
 }
 

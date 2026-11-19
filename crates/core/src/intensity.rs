@@ -24,8 +24,13 @@ impl IntensityMeter {
         Self {
             last: None,
             ema: 0.0,
-            height_scale: (height_cm / 100.0 / REF_HEIGHT_M).max(0.5),
+            height_scale: height_scale(height_cm),
         }
+    }
+
+    /// The player edited their height: later frames are scaled by it, the running average stays.
+    pub fn set_height(&mut self, height_cm: f32) {
+        self.height_scale = height_scale(height_cm);
     }
 
     pub fn update(&mut self, f: &PoseFrame) -> f32 {
@@ -59,6 +64,10 @@ impl IntensityMeter {
         }
         self.ema
     }
+}
+
+fn height_scale(height_cm: f32) -> f32 {
+    (height_cm / 100.0 / REF_HEIGHT_M).max(0.5)
 }
 
 fn dist(a: Vec3, b: Vec3) -> f32 {
