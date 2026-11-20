@@ -7,14 +7,14 @@ version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-only"
 rust-version = "1.88"
-repository = "https://github.com/EncidXVII/FitnessVR"
-homepage = "https://github.com/EncidXVII/FitnessVR"
+repository = "https://github.com/EncidXVII/SweatXR"
+homepage = "https://github.com/EncidXVII/SweatXR"
 
 [workspace.dependencies]
-fitvr-core = { path = "crates/core" }
-fitvr-hr = { path = "crates/hr" }
-fitvr-vr = { path = "crates/vr" }
-fitvr-ui = { path = "crates/ui" }
+sweatxr-core = { path = "crates/core" }
+sweatxr-hr = { path = "crates/hr" }
+sweatxr-vr = { path = "crates/vr" }
+sweatxr-ui = { path = "crates/ui" }
 rusqlite = { version = "0.41", features = ["bundled"] }
 directories = "6"
 quick-xml = "0.42"

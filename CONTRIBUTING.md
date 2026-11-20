@@ -13,7 +13,7 @@ Thanks for helping. Bug reports, accuracy comparisons and pull requests are all 
 ## Build and test
 
 ```bash
-cargo build --release -p fitvr
+cargo build --release -p sweatxr
 cargo test --workspace
 ```
 
@@ -48,7 +48,7 @@ and checks memory, CPU and the log. It edits SteamVR's settings and restores the
 | `crates/hr` | Bluetooth LE heart rate and the packet parser |
 | `crates/vr` | OpenVR binding (runtime-loaded), Vulkan overlay textures, watch/panel geometry |
 | `crates/ui` | Slint views shared by watch, panel and desktop; tokens from `design-tokens.json` |
-| `crates/app` | the `fitvr` binary: overlay, desktop window, tray, SteamVR registration |
+| `crates/app` | the `sweatxr` binary: overlay, desktop window, tray, SteamVR registration |
 
 ## Rules
 
@@ -65,7 +65,21 @@ and checks memory, CPU and the log. It edits SteamVR's settings and restores the
 ## Regenerating the OpenVR binding
 
 After updating `tools/openvr_capi.h`, add any newly used functions to
-`crates/vr/examples/gen_ffi.rs`, then run `cargo run -p fitvr-vr --example gen_ffi`. It writes
+`crates/vr/examples/gen_ffi.rs`, then run `cargo run -p sweatxr-vr --example gen_ffi`. It writes
 `crates/vr/src/ffi/tables.rs` itself.
 
 By contributing you agree that your contribution is licensed under GPL-3.0-only.
+
+## Rights in what you contribute
+
+SweatXR is the work of [EncidXVII](https://github.com/EncidXVII), published under GPL-3.0-only with the terms in [NOTICE](NOTICE). So that it stays one
+work with one owner who can answer for all of it:
+
+- You keep the copyright in what you write.
+- By opening a pull request you license your contribution to the project under GPL-3.0-only, and you give EncidXVII a
+  perpetual, worldwide, royalty-free right to use, change and relicense it as part of SweatXR (for example to move to a
+  later license version or to publish in a store that needs other terms).
+- You confirm that you wrote it or have the right to submit it, as in the
+  [Developer Certificate of Origin 1.1](https://developercertificate.org/): add `Signed-off-by: Your Name <email>`
+  to your commits (`git commit -s`).
+- Contributors are named in the changelog and the release notes.

@@ -1,9 +1,12 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Prints a TCX file for schema validation in CI: `cargo run --example tcx_sample > s.tcx`
 //! then `xmllint --noout --schema TrainingCenterDatabasev2.xsd s.tcx`.
 
-use fitvr_core::export::tcx;
-use fitvr_core::storage::Session;
-use fitvr_core::tracker::Sample;
+use sweatxr_core::export::tcx;
+use sweatxr_core::storage::Session;
+use sweatxr_core::tracker::Sample;
 
 fn main() {
     let t0 = 1_800_000_000;

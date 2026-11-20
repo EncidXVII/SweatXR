@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Overlay textures through Vulkan. One device-local image per overlay, updated in place from a
 //! persistently mapped staging buffer, so SteamVR allocates nothing per frame. (SetOverlayRaw
 //! leaked ~650 KB per upload and failed after ~240 uploads in the soak test.)

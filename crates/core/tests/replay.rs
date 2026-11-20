@@ -1,10 +1,13 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! AUTO GATE 2: synthetic traces give the expected MET bands, active minutes and session splits.
 
-use fitvr_core::PoseSource;
-use fitvr_core::intensity::IntensityMeter;
-use fitvr_core::profile::Profile;
-use fitvr_core::replay::{Pattern, RATE_HZ, Replay, synth};
-use fitvr_core::tracker::{Event, Tracker};
+use sweatxr_core::PoseSource;
+use sweatxr_core::intensity::IntensityMeter;
+use sweatxr_core::profile::Profile;
+use sweatxr_core::replay::{Pattern, RATE_HZ, Replay, synth};
+use sweatxr_core::tracker::{Event, Tracker};
 
 struct Outcome {
     mean_met: f32,
@@ -29,7 +32,7 @@ fn play(segments: &[(Pattern, f64, &str)]) -> Outcome {
             if i.is_multiple_of(RATE_HZ as usize) {
                 let ts = 1_800_000_000 + f.t as i64;
                 let ev = tracker.tick(ts, intensity, None, app, &p);
-                met_sum += fitvr_core::energy::met_from_intensity(intensity);
+                met_sum += sweatxr_core::energy::met_from_intensity(intensity);
                 met_n += 1;
                 events.extend(ev);
             }
@@ -106,8 +109,8 @@ fn idle_tail_is_not_counted() {
 #[test]
 fn recorded_csv_replays() {
     let frames = synth(Pattern::Sway, 2.0, 0.0);
-    let text: String = std::iter::once(fitvr_core::replay::CSV_HEADER.to_owned())
-        .chain(frames.iter().map(fitvr_core::replay::csv_row))
+    let text: String = std::iter::once(sweatxr_core::replay::CSV_HEADER.to_owned())
+        .chain(frames.iter().map(sweatxr_core::replay::csv_row))
         .collect::<Vec<_>>()
         .join("\n");
     let mut r = Replay::from_csv(&text).expect("parse");

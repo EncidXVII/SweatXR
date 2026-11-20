@@ -1,15 +1,18 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Folders, SteamVR registration (.vrmanifest + auto-start) and the input action manifest.
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use fitvr_vr::{AppKind, Apps, ERR_NO_SERVER};
+use sweatxr_vr::{AppKind, Apps, ERR_NO_SERVER};
 
-pub const APP_KEY: &str = "local.fitnessvr.overlay";
+pub const APP_KEY: &str = "local.sweatxr.overlay";
 pub const ACTION_SET: &str = "/actions/main";
 pub const ACTION_SELECT: &str = "/actions/main/in/select";
 pub const ACTION_HAPTIC: &str = "/actions/main/out/haptic";
-/// The controller's tip pose: the same point and axes on every controller model (DesktopVR uses it too), so the
+/// The controller's tip pose: the same point and axes on every controller model (WristXR uses it too), so the
 /// watch sits and turns the same way on Index, Touch and Vive wands. The raw device pose differs per model.
 pub const ACTION_POINTER: &str = "/actions/main/in/pointer";
 /// Default bindings: trigger click selects, both hands. Players rebind in SteamVR's binding UI.
@@ -22,22 +25,22 @@ pub struct Dirs {
 
 impl Dirs {
     pub fn new() -> Result<Self, Box<dyn Error>> {
-        // FITVR_DATA_DIR keeps smoke tests and soaks away from the player's real history.
-        let data = match std::env::var_os("FITVR_DATA_DIR") {
+        // SWEATXR_DATA_DIR keeps smoke tests and soaks away from the player's real history.
+        let data = match std::env::var_os("SWEATXR_DATA_DIR") {
             Some(d) => PathBuf::from(d),
-            None => directories::ProjectDirs::from("", "", "FitnessVR")
+            None => directories::ProjectDirs::from("", "", "SweatXR")
                 .ok_or("no home directory")?
                 .data_dir()
                 .to_path_buf(),
         };
         std::fs::create_dir_all(&data)?;
         let docs = directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf));
-        let export = docs.unwrap_or_else(|| data.clone()).join("FitnessVR");
+        let export = docs.unwrap_or_else(|| data.clone()).join("SweatXR");
         Ok(Self { data, export })
     }
 
     pub fn db(&self) -> PathBuf {
-        self.data.join("fitvr.db")
+        self.data.join("sweatxr.db")
     }
 }
 
@@ -48,12 +51,12 @@ fn write_json(path: &Path, value: &serde_json::Value) -> std::io::Result<()> {
     )
 }
 
-/// The app icon SteamVR shows next to FitnessVR in its startup and overlay lists.
-const STEAMVR_IMAGE: &[u8] = include_bytes!("../../../packaging/brand/fitnessvr-256.png");
+/// The app icon SteamVR shows next to SweatXR in its startup and overlay lists.
+const STEAMVR_IMAGE: &[u8] = include_bytes!("../../../packaging/brand/sweatxr-256.png");
 
 /// Writes the manifest pointing at this exact executable, so a moved install re-registers itself.
 pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
-    let image = dirs.data.join("fitnessvr.png");
+    let image = dirs.data.join("sweatxr.png");
     std::fs::write(&image, STEAMVR_IMAGE)?;
     // Inside an AppImage the exe sits in a mount whose path changes every run; $APPIMAGE is the
     // stable file SteamVR must launch.
@@ -61,7 +64,7 @@ pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
         Some(p) => PathBuf::from(p),
         None => std::env::current_exe()?,
     };
-    let path = dirs.data.join("fitvr.vrmanifest");
+    let path = dirs.data.join("sweatxr.vrmanifest");
     let exe_key = if cfg!(windows) {
         "binary_path_windows"
     } else {
@@ -79,7 +82,7 @@ pub fn write_vrmanifest(dirs: &Dirs) -> Result<PathBuf, Box<dyn Error>> {
                 "image_path": image,
                 "is_dashboard_overlay": true,
                 "strings": { "en_us": {
-                    "name": "FitnessVR",
+                    "name": "SweatXR",
                     "description": "Calories, active minutes and heart rate on your wrist in every game."
                 }}
             }]
@@ -104,7 +107,7 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
         write_json(
             &dir.join(format!("bindings_{c}.json")),
             &serde_json::json!({
-                "controller_type": c, "name": "FitnessVR defaults", "description": "Trigger selects on the watch and panel.",
+                "controller_type": c, "name": "SweatXR defaults", "description": "Trigger selects on the watch and panel.",
                 "bindings": { ACTION_SET: { "sources": sources, "haptics": haptics, "poses": poses } }
             }),
         )?;
@@ -120,7 +123,7 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
             ],
             "action_sets": [{ "name": ACTION_SET, "usage": "leftright" }],
             "default_bindings": CONTROLLERS.iter().map(|c| serde_json::json!({ "controller_type": c, "binding_url": format!("bindings_{c}.json") })).collect::<Vec<_>>(),
-            "localization": [{ "language_tag": "en_US", ACTION_SET: "FitnessVR", ACTION_SELECT: "Select on watch and panel", ACTION_POINTER: "Pointer", ACTION_HAPTIC: "Haptic tick" }]
+            "localization": [{ "language_tag": "en_US", ACTION_SET: "SweatXR", ACTION_SELECT: "Select on watch and panel", ACTION_POINTER: "Pointer", ACTION_HAPTIC: "Haptic tick" }]
         }),
     )?;
     Ok(path)
@@ -132,11 +135,11 @@ pub fn register(apps: &Apps, dirs: &Dirs, auto_start: bool) -> Result<(), Box<dy
     Ok(())
 }
 
-/// `fitvr --register`, spawned by the desktop app. Registers the overlay with SteamVR so it
+/// `sweatxr --register`, spawned by the desktop app. Registers the overlay with SteamVR so it
 /// starts with it. If SteamVR is already running and auto-start is on, also starts the overlay
 /// now, so nobody has to restart SteamVR after installing.
 pub fn register_utility(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
-    let auto_start = fitvr_core::storage::Store::open(&dirs.db())?
+    let auto_start = sweatxr_core::storage::Store::open(&dirs.db())?
         .profile()?
         .auto_start;
     // A background connection never starts SteamVR, so it doubles as an "is it running" check.

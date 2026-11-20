@@ -1,5 +1,5 @@
 [package]
-name = "fitvr-ui"
+name = "sweatxr-ui"
 description = "Slint views shared by the VR watch, the VR panel and the desktop window"
 version.workspace = true
 edition.workspace = true
@@ -8,8 +8,8 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-fitvr-core.workspace = true
-fitvr-hr.workspace = true
+sweatxr-core.workspace = true
+sweatxr-hr.workspace = true
 slint.workspace = true
 
 [build-dependencies]

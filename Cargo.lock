@@ -1213,62 +1213,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
-name = "fitvr"
-version = "1.0.0"
-dependencies = [
- "directories",
- "fitvr-core",
- "fitvr-hr",
- "fitvr-ui",
- "fitvr-vr",
- "serde_json",
- "slint",
- "tracing",
- "tracing-subscriber",
- "tray-icon",
-]
-
-[[package]]
-name = "fitvr-core"
-version = "1.0.0"
-dependencies = [
- "quick-xml 0.42.0",
- "rusqlite",
-]
-
-[[package]]
-name = "fitvr-hr"
-version = "1.0.0"
-dependencies = [
- "btleplug",
- "futures",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "fitvr-ui"
-version = "1.0.0"
-dependencies = [
- "fitvr-core",
- "fitvr-hr",
- "insta",
- "png",
- "serde_json",
- "slint",
- "slint-build",
-]
-
-[[package]]
-name = "fitvr-vr"
-version = "1.0.0"
-dependencies = [
- "ash",
- "fitvr-core",
- "serde_json",
-]
-
-[[package]]
 name = "fixed_decimal"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4680,6 +4624,62 @@ dependencies = [
  "skrifa",
  "yazi",
  "zeno",
+]
+
+[[package]]
+name = "sweatxr"
+version = "1.0.0"
+dependencies = [
+ "directories",
+ "serde_json",
+ "slint",
+ "sweatxr-core",
+ "sweatxr-hr",
+ "sweatxr-ui",
+ "sweatxr-vr",
+ "tracing",
+ "tracing-subscriber",
+ "tray-icon",
+]
+
+[[package]]
+name = "sweatxr-core"
+version = "1.0.0"
+dependencies = [
+ "quick-xml 0.42.0",
+ "rusqlite",
+]
+
+[[package]]
+name = "sweatxr-hr"
+version = "1.0.0"
+dependencies = [
+ "btleplug",
+ "futures",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "sweatxr-ui"
+version = "1.0.0"
+dependencies = [
+ "insta",
+ "png",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "sweatxr-core",
+ "sweatxr-hr",
+]
+
+[[package]]
+name = "sweatxr-vr"
+version = "1.0.0"
+dependencies = [
+ "ash",
+ "serde_json",
+ "sweatxr-core",
 ]
 
 [[package]]

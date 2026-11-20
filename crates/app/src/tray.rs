@@ -1,11 +1,14 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Windows tray icon: a click opens the window, the right-click menu has Open and Quit. The icon
-//! is the FitnessVR mark from the exe's icons (build.rs): lime on a dark taskbar, dark ink on a
+//! is the SweatXR mark from the exe's icons (build.rs): lime on a dark taskbar, dark ink on a
 //! light one, swapped when Windows switches.
 
 use std::time::{Duration, Instant};
 
-use fitvr_ui::DesktopWindow;
 use slint::ComponentHandle;
+use sweatxr_ui::DesktopWindow;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
@@ -96,14 +99,14 @@ fn ring() -> Vec<u8> {
 
 impl Tray {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let open = MenuItem::new("Open FitnessVR", true, None);
+        let open = MenuItem::new("Open SweatXR", true, None);
         let quit = MenuItem::new("Quit", true, None);
         let menu = Menu::new();
         menu.append(&open)?;
         menu.append(&quit)?;
         let light = light_taskbar();
         let icon = TrayIconBuilder::new()
-            .with_tooltip("FitnessVR")
+            .with_tooltip("SweatXR")
             .with_icon(icon(light)?)
             .with_menu(Box::new(menu))
             // Left click opens the window; the menu is on the right button, as elsewhere on Windows.

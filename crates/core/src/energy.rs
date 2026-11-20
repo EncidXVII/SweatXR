@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! kcal estimates. Heart rate when available (Keytel et al. 2005, prediction equation without
 //! VO2max), otherwise motion intensity mapped to METs, optionally through a personal fit.
 

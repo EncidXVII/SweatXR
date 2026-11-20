@@ -1,33 +1,46 @@
-<img src="packaging/brand/fitnessvr-mark.svg" width="72" alt="FitnessVR logo">
+<img src="packaging/brand/sweatxr-mark.svg" width="72" alt="SweatXR logo">
 
-# FitnessVR: a VR fitness tracker for every SteamVR game
+# SweatXR: free VR fitness and calorie tracker for every SteamVR game
 
 **A free, open-source calorie counter and heart rate watch for SteamVR.** Glance at your wrist
 in any VR game to see calories burned, active minutes, heart rate and your daily goal ring.
 It keeps history per day and per game, and your data never leaves your computer.
 
-[![CI](https://github.com/EncidXVII/FitnessVR/actions/workflows/ci.yml/badge.svg)](https://github.com/EncidXVII/FitnessVR/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/EncidXVII/FitnessVR?include_prereleases&label=download)](https://github.com/EncidXVII/FitnessVR/releases/latest)
+[![CI](https://github.com/EncidXVII/SweatXR/actions/workflows/ci.yml/badge.svg)](https://github.com/EncidXVII/SweatXR/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/EncidXVII/SweatXR?include_prereleases&label=download)](https://github.com/EncidXVII/SweatXR/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Steam%20Frame-informational)
 ![Written in Rust](https://img.shields.io/badge/written%20in-Rust-orange)
 
 <p>
-  <img src="crates/ui/tests/snapshots/snapshots__watch.snap.png" width="320" alt="FitnessVR wrist watch overlay in SteamVR: goal ring marked DONE, 321 kcal burned, 40 active minutes, heart rate 142 bpm">
+  <img src="crates/ui/tests/snapshots/snapshots__watch.snap.png" width="320" alt="SweatXR wrist watch overlay in SteamVR: goal ring marked DONE, 321 kcal burned, 40 active minutes, heart rate 142 bpm">
 </p>
 
 | VR panel | Desktop history |
 |---|---|
-| <img src="crates/ui/tests/snapshots/snapshots__panel_today.snap.png" alt="FitnessVR panel in VR, Today: 321 of 300 kcal goal and calories burned per game"> | <img src="crates/ui/tests/snapshots/snapshots__desktop_history_month.snap.png" alt="FitnessVR desktop app, 30-day history: daily calorie bars and calories per VR game"> |
+| <img src="crates/ui/tests/snapshots/snapshots__panel_today.snap.png" alt="SweatXR panel in VR, Today: 321 of 300 kcal goal and calories burned per game"> | <img src="crates/ui/tests/snapshots/snapshots__desktop_history_month.snap.png" alt="SweatXR desktop app, 30-day history: daily calorie bars and calories per VR game"> |
 
-**[Download for Windows](https://github.com/EncidXVII/FitnessVR/releases/latest/download/fitvr-windows-x64.zip)**
-· **[Linux x64 AppImage](https://github.com/EncidXVII/FitnessVR/releases/latest/download/fitvr-linux-x64.AppImage)**
-· **[Linux arm64 / Steam Frame](https://github.com/EncidXVII/FitnessVR/releases/latest/download/fitvr-linux-arm64.AppImage)**
-· [All downloads](https://github.com/EncidXVII/FitnessVR/releases/latest)
+**[Download for Windows](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-windows-x64.zip)**
+· **[Linux x64 AppImage](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-x64.AppImage)**
+· **[Linux arm64 / Steam Frame](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-arm64.AppImage)**
+· [All downloads](https://github.com/EncidXVII/SweatXR/releases/latest)
 
 > **Status: first release, looking for testers.** Calorie numbers are estimates and this is not
 > a medical device. Comparisons against your fitness watch are the most useful feedback; see
 > [Contributing](CONTRIBUTING.md).
+
+## At a glance
+
+| | |
+|---|---|
+| **What it is** | A SteamVR overlay that counts calories burned, active minutes and heart rate zones in any VR game, on a wrist watch you glance at while you play |
+| **Use it for** | Tracking VR workouts in rhythm, boxing, dance and sports games, daily calorie goals and streaks, calories per game, exporting workouts as TCX or CSV |
+| **Platforms** | Windows, Linux (x64 AppImage), Steam Frame (arm64) |
+| **Headsets** | Anything on SteamVR: Valve Index, Steam Frame, HTC Vive, Pimax, Bigscreen Beyond, Windows Mixed Reality, Meta Quest through Steam Link, Virtual Desktop or a Link cable |
+| **Heart rate** | Optional: any Bluetooth LE chest strap or armband with the standard heart rate service; without one it estimates from head and hand movement |
+| **Privacy** | Everything stays in one file on your computer. No account, no cloud, no network access |
+| **Price** | Free. No subscription |
+| **License** | Open source, `GPL-3.0-only`, © 2026 EncidXVII |
 
 ## Features
 
@@ -55,18 +68,18 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
 ## Install in 3 steps
 
 1. Download the archive for your system from the
-   [latest release](https://github.com/EncidXVII/FitnessVR/releases/latest) and check it
+   [latest release](https://github.com/EncidXVII/SweatXR/releases/latest) and check it
    against its `.sha256` file.
 2. Windows: unpack the zip anywhere and keep the folder. Linux or Steam Frame (Developer Mode):
    either make the `.AppImage` executable and keep it where it is, or unpack the `.tar.gz` and
    run `./install.sh`.
-3. Run `fitvr` once. It registers itself with SteamVR; if SteamVR is running, the watch appears
+3. Run `sweatxr` once. It registers itself with SteamVR; if SteamVR is running, the watch appears
    on your wrist right away, and from then on it starts with SteamVR. Turn that off in
    Settings > Device > Start with SteamVR.
 
-**Uninstall:** quit FitnessVR (Windows: tray icon > Quit; Linux: close its window) and SteamVR, then run
-`Uninstall FitnessVR.cmd` in its folder (Windows) or `./uninstall.sh` (Linux; or `fitvr --uninstall`). It takes
-FitnessVR off SteamVR's list and deletes its settings and workout history; exports in `Documents/FitnessVR` stay.
+**Uninstall:** quit SweatXR (Windows: tray icon > Quit; Linux: close its window) and SteamVR, then run
+`Uninstall SweatXR.cmd` in its folder (Windows) or `./uninstall.sh` (Linux; or `sweatxr --uninstall`). It takes
+SweatXR off SteamVR's list and deletes its settings and workout history; exports in `Documents/SweatXR` stay.
 Then delete the folder.
 
 ## Use
@@ -77,19 +90,19 @@ Then delete the folder.
   means a session is being counted. When you reach your goal it turns lime and buzzes.
 - **Panel:** point at the watch with the other controller (a laser shows where you aim) and
   pull the trigger. Today, Week and Settings. Rebind the button in SteamVR's controller bindings
-  under FitnessVR.
-- **Desktop:** `fitvr` opens Today, History (step back through past weeks and months), Sessions
+  under SweatXR.
+- **Desktop:** `sweatxr` opens Today, History (step back through past weeks and months), Sessions
   (each session with its own export) and Settings. On Windows it sits in the tray.
 - **Heart rate:** Settings > Device > Scan, then pick your strap. Choosing it on the desktop
   saves the choice; the VR overlay connects.
-- **Export:** TCX and CSV files go to `Documents/FitnessVR`.
+- **Export:** TCX and CSV files go to `Documents/SweatXR`.
 - **Your data:** Settings > Data shows where it is stored and deletes all history (two clicks).
-- **Theme:** Settings > Look (or Setup in VR) picks the accent colour, one of eight shared with DesktopVR.
+- **Theme:** Settings > Look (or Setup in VR) picks the accent colour, one of eight shared with WristXR.
 
 ## Privacy
 
 No account, no telemetry, no network access. Everything is in one SQLite file:
-`%APPDATA%\FitnessVR\data\fitvr.db` on Windows, `~/.local/share/fitnessvr/fitvr.db` on Linux.
+`%APPDATA%\SweatXR\data\sweatxr.db` on Windows, `~/.local/share/sweatxr/sweatxr.db` on Linux.
 Logs (`overlay.log`, `desktop.log`) sit next to it and contain game names, nothing else personal.
 
 ## Accuracy
@@ -108,7 +121,7 @@ All numbers are estimates.
 
 ### How many calories does VR gaming burn?
 It depends on the game and on you. Rhythm and boxing games often reach the effort of brisk
-walking or jogging, while seated games burn little more than resting. FitnessVR measures your
+walking or jogging, while seated games burn little more than resting. SweatXR measures your
 own sessions, so you see the real number for each game you play.
 
 ### Does it work with Meta Quest?
@@ -141,7 +154,7 @@ Yes, free and open source under GPL-3.0, with no account, ads or subscription.
 ## Build from source
 
 ```bash
-cargo build --release -p fitvr
+cargo build --release -p sweatxr
 ```
 
 Linux needs `libdbus-1-dev pkg-config libxkbcommon-dev libfontconfig1-dev`. No OpenVR SDK is
@@ -152,16 +165,37 @@ needed: the runtime is loaded from your SteamVR install at start. See
 
 Issues and pull requests are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Accuracy reports (your watch or strap app against
-FitnessVR for the same session) help the most. Report security problems privately as described
+SweatXR for the same session) help the most. Report security problems privately as described
 in [SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
-If FitnessVR helps you, a star helps other VR players find it.
+If SweatXR helps you, a star helps other VR players find it.
 
 ## Contact
 
 Maintainer contact: open an issue, or for private matters use GitHub's private vulnerability
 reporting (see [SECURITY.md](SECURITY.md)).
 
-## License
+## More PC VR tools from the same author
 
-GPL-3.0-only. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Four free, open-source tools for PC VR by [EncidXVII](https://github.com/EncidXVII), with one look and one way of working:
+
+| | |
+|---|---|
+| **[WristXR](https://github.com/EncidXVII/WristXR)** | VR desktop overlay with wrist clock |
+| **[PortXR](https://github.com/EncidXVII/PortXR)** | Play flat PC games in VR |
+| **[FoveaXR](https://github.com/EncidXVII/FoveaXR)** | Foveated rendering for any PC VR game |
+| **SweatXR (this one)** | VR fitness and calorie tracker |
+
+## License and credit
+
+Copyright © 2026 [EncidXVII](https://github.com/EncidXVII). SweatXR is free software under the [GNU General Public License, version 3](LICENSE)
+(`GPL-3.0-only`), with the attribution and naming terms in [NOTICE](NOTICE).
+
+- **You may** use it for anything, read the code, change it and share it.
+- **If you share it, or anything built from its code,** you must publish your source under the same license, keep
+  the copyright lines and the NOTICE file, and say clearly that yours is a changed version.
+- **You may not** put its code in a closed-source product, remove the credit, or call a changed version "SweatXR" or
+  use its logo: see [TRADEMARKS.md](TRADEMARKS.md).
+
+Third-party components and their licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). To cite SweatXR:
+[CITATION.cff](CITATION.cff).

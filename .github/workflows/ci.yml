@@ -13,9 +13,9 @@ jobs:
       matrix:
         # Oldest Ubuntu runners that work: the binary must run on SteamOS's glibc.
         include:
-          - { os: windows-latest, artifact: fitvr-windows-x64, bin: fitvr.exe }
-          - { os: ubuntu-22.04, artifact: fitvr-linux-x64, bin: fitvr }
-          - { os: ubuntu-22.04-arm, artifact: fitvr-linux-arm64, bin: fitvr }
+          - { os: windows-latest, artifact: sweatxr-windows-x64, bin: sweatxr.exe }
+          - { os: ubuntu-22.04, artifact: sweatxr-linux-x64, bin: sweatxr }
+          - { os: ubuntu-22.04-arm, artifact: sweatxr-linux-arm64, bin: sweatxr }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -33,21 +33,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           curl -sSfL -o tcx.xsd https://www8.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd
-          cargo run -q -p fitvr-core --example tcx_sample > sample.tcx
+          cargo run -q -p sweatxr-core --example tcx_sample > sample.tcx
           xmllint --noout --schema tcx.xsd sample.tcx
       - uses: EmbarkStudios/cargo-deny-action@v2
         if: runner.os == 'Linux' && runner.arch == 'X64'
-      - run: cargo build --release -p fitvr
+      - run: cargo build --release -p sweatxr
       - name: Package
         shell: bash
         run: |
-          mkdir -p dist/fitvr
-          cp target/release/${{ matrix.bin }} LICENSE THIRD_PARTY_NOTICES.md README.md dist/fitvr/
-          if [ "$RUNNER_OS" = Linux ]; then cp scripts/install.sh scripts/uninstall.sh dist/fitvr/
-          else cp "scripts/Uninstall FitnessVR.cmd" dist/fitvr/; fi
+          mkdir -p dist/sweatxr
+          cp target/release/${{ matrix.bin }} LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md dist/sweatxr/
+          if [ "$RUNNER_OS" = Linux ]; then cp scripts/install.sh scripts/uninstall.sh dist/sweatxr/
+          else cp "scripts/Uninstall SweatXR.cmd" dist/sweatxr/; fi
           cd dist
-          if [ "$RUNNER_OS" = Windows ]; then f=${{ matrix.artifact }}.zip; 7z a -tzip "$f" fitvr > /dev/null
-          else f=${{ matrix.artifact }}.tar.gz; tar czf "$f" fitvr; fi
+          if [ "$RUNNER_OS" = Windows ]; then f=${{ matrix.artifact }}.zip; 7z a -tzip "$f" sweatxr > /dev/null
+          else f=${{ matrix.artifact }}.tar.gz; tar czf "$f" sweatxr; fi
           sha256sum "$f" > "$f.sha256"
       - name: AppImage
         if: runner.os == 'Linux'
@@ -56,9 +56,9 @@ jobs:
           curl -sSfL -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-$arch.AppImage"
           chmod +x appimagetool
           mkdir -p AppDir/usr/bin
-          cp target/release/fitvr AppDir/usr/bin/
-          cp packaging/fitvr.desktop packaging/fitvr.png AppDir/
-          ln -s usr/bin/fitvr AppDir/AppRun
+          cp target/release/sweatxr AppDir/usr/bin/
+          cp packaging/sweatxr.desktop packaging/sweatxr.png AppDir/
+          ln -s usr/bin/sweatxr AppDir/AppRun
           # Runners have no FUSE; extract-and-run avoids it.
           ARCH=$arch ./appimagetool --appimage-extract-and-run AppDir "dist/${{ matrix.artifact }}.AppImage"
           cd dist && sha256sum "${{ matrix.artifact }}.AppImage" > "${{ matrix.artifact }}.AppImage.sha256"

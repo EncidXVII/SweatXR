@@ -1,5 +1,5 @@
 [package]
-name = "fitvr-vr"
+name = "sweatxr-vr"
 description = "Thin OpenVR binding (overlay, poses, input, applications) and watch/panel geometry"
 version.workspace = true
 edition.workspace = true
@@ -8,6 +8,6 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-fitvr-core.workspace = true
+sweatxr-core.workspace = true
 serde_json.workspace = true
 ash.workspace = true

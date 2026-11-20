@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Desktop window: history, export, settings and strap pairing. Reads the database the overlay
 //! writes, so it can stay open during a session and follow along.
 
@@ -6,10 +9,10 @@ use std::error::Error;
 use std::rc::Rc;
 use std::time::Duration;
 
-use fitvr_core::time::now_unix;
-use fitvr_hr::BleHr;
-use fitvr_ui::{AppState, DesktopWindow, Mode};
 use slint::{ComponentHandle, Timer, TimerMode};
+use sweatxr_core::time::now_unix;
+use sweatxr_hr::BleHr;
+use sweatxr_ui::{AppState, DesktopWindow, Mode};
 
 use crate::app::{App, Hr, Queue, wire};
 use crate::setup::Dirs;
@@ -22,7 +25,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let app = Rc::new(RefCell::new(App::open(dirs, |_| {
         Hr::PairOnly(BleHr::start(None))
     })?));
-    if fitvr_vr::runtime_dir().is_none() {
+    if sweatxr_vr::runtime_dir().is_none() {
         app.borrow_mut().notice =
             Some("SteamVR is not installed. Install it from Steam to get the watch in VR.".into());
     }
@@ -43,7 +46,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
         .map_err(|e| tracing::warn!("tray: {e}"))
         .ok();
     // Closing the window quits: tracking runs in the VR overlay, not here, so nothing is lost, and
-    // no FitnessVR is left running unseen (the event loop would otherwise outlive the window).
+    // no SweatXR is left running unseen (the event loop would otherwise outlive the window).
     {
         ui.window().on_close_requested(|| {
             let _ = slint::quit_event_loop();
@@ -92,7 +95,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Registers the overlay with SteamVR and applies "Start with SteamVR" (`fitvr --register`, in its
+/// Registers the overlay with SteamVR and applies "Start with SteamVR" (`sweatxr --register`, in its
 /// own process: SteamVR's API lets one connection per process). Harmless when SteamVR is off.
 fn register() {
     let Ok(exe) = std::env::current_exe() else { return };

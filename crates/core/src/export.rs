@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! TCX (TrainingCenterDatabase v2) and CSV. Both are written by hand: the formats are tiny and
 //! a serializer would add more code than it saves. quick-xml does the escaping.
 

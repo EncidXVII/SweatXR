@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Turns 1 Hz ticks into sessions, samples and active minutes.
 //!
 //! Session rules: motion at MET >= 3 starts one; 5 min below light motion, an app change or a

@@ -1,14 +1,14 @@
 cff-version: 1.2.0
-message: "If you use FitnessVR in research, please cite it as below."
+message: "If you use SweatXR in research, please cite it as below."
 type: software
-title: "FitnessVR: a VR fitness tracker for every SteamVR game"
+title: "SweatXR: a VR fitness tracker for every SteamVR game"
 abstract: "Free, open-source SteamVR overlay that estimates calories burned, active minutes and heart rate zones across VR games, from Bluetooth LE heart rate or head and hand motion."
 authors:
   - alias: EncidXVII
 version: 1.0.0
 date-released: 2026-11-08
 license: GPL-3.0-only
-repository-code: "https://github.com/EncidXVII/FitnessVR"
+repository-code: "https://github.com/EncidXVII/SweatXR"
 keywords:
   - virtual reality
   - VR fitness

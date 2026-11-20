@@ -1,17 +1,20 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! State and UI commands shared by the overlay and the desktop window.
 
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-use fitvr_core::energy::fit_calibration;
-use fitvr_core::export::{csv, tcx};
-use fitvr_core::profile::Profile;
-use fitvr_core::storage::{Session, Store};
-use fitvr_core::time::{Day, civil, now_unix};
-use fitvr_hr::{BleHr, Device, FakeHr, HrSource, Status};
-use fitvr_ui::view::{Live, Nav, Range, apply_profile, refresh};
-use fitvr_ui::{AppState, ProfileData};
+use sweatxr_core::energy::fit_calibration;
+use sweatxr_core::export::{csv, tcx};
+use sweatxr_core::profile::Profile;
+use sweatxr_core::storage::{Session, Store};
+use sweatxr_core::time::{Day, civil, now_unix};
+use sweatxr_hr::{BleHr, Device, FakeHr, HrSource, Status};
+use sweatxr_ui::view::{Live, Nav, Range, apply_profile, refresh};
+use sweatxr_ui::{AppState, ProfileData};
 
 use crate::setup::Dirs;
 
@@ -239,8 +242,8 @@ impl App {
             .collect::<Result<Vec<_>, _>>()?;
         let (y, m, d) = civil(day);
         let name = match only {
-            Some(id) => format!("fitvr-{y:04}-{m:02}-{d:02}-session-{id}.tcx"),
-            None => format!("fitvr-{y:04}-{m:02}-{d:02}.tcx"),
+            Some(id) => format!("sweatxr-{y:04}-{m:02}-{d:02}-session-{id}.tcx"),
+            None => format!("sweatxr-{y:04}-{m:02}-{d:02}.tcx"),
         };
         self.write(&name, &tcx(&with_samples))
     }
@@ -248,7 +251,7 @@ impl App {
     fn export_csv(&self) -> Result<String, Box<dyn Error>> {
         let (y, m, d) = civil(self.store.day(now_unix()));
         self.write(
-            &format!("fitvr-all-{y:04}-{m:02}-{d:02}.csv"),
+            &format!("sweatxr-all-{y:04}-{m:02}-{d:02}.csv"),
             &csv(&self.store.samples_since(0)?),
         )
     }
@@ -329,10 +332,10 @@ fn open_folder(dir: &std::path::Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fitvr_core::tracker::Tracker;
+    use sweatxr_core::tracker::Tracker;
 
     fn app(name: &str) -> (App, std::path::PathBuf) {
-        let root = std::env::temp_dir().join(format!("fitvr-app-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("sweatxr-app-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("dir");
         let dirs = Dirs {
@@ -346,7 +349,7 @@ mod tests {
     }
 
     fn profile_edit(app: &App, f: impl FnOnce(&mut ProfileData)) -> UiCmd {
-        let mut d = fitvr_ui::view::profile_data(&app.profile);
+        let mut d = sweatxr_ui::view::profile_data(&app.profile);
         f(&mut d);
         UiCmd::Profile(d)
     }

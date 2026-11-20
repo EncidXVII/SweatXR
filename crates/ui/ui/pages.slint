@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 import { Tokens, Mode } from "@tokens";
 import { AppState, HrDevice, SessionRow } from "state.slint";
 import { Body, Button, Big, BarChart, Caption, ChoiceRow, GameRowView, Group, Hit, Icon, IconButton, Icons, Meter, Motion, Ring, Row, SectionHead, Segmented, Steps, StepRow, SwitchRow, Title } from "kit.slint";
@@ -443,7 +446,7 @@ export component PanelSetup inherits VerticalLayout {
     spacing: Tokens.space-3;
     Head {
         title: "SETUP";
-        hint: "FitnessVR " + AppState.version;
+        hint: "SweatXR " + AppState.version;
     }
     Group {
         GoalRow { }

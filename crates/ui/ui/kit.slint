@@ -1,4 +1,7 @@
-// Shared components. Colours and type come only from Tokens; geometry follows the DesktopVR menu.
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
+// Shared components. Colours and type come only from Tokens; geometry follows the WristXR menu.
 //
 // Motion (all off when Mode.reduce-motion, which follows the OS "animation effects" setting):
 // - presses answer on trigger-down (pressed colour at once) and ease back over motion-fast;
@@ -67,7 +70,7 @@ export component Big inherits Text {
     font-family: Tokens.font-display;
 }
 
-// Line icon on a 24-unit grid, drawn like the DesktopVR glyphs.
+// Line icon on a 24-unit grid, drawn like the WristXR glyphs.
 export component Icon inherits Path {
     in property <string> d;
     in property <brush> color: Tokens.ink;
@@ -270,7 +273,7 @@ export component Segmented inherits Rectangle {
     }
 }
 
-// − value + as in the DesktopVR menu.
+// − value + as in the WristXR menu.
 export component Steps inherits Rectangle {
     in property <string> value;
     callback minus();

@@ -1,5 +1,5 @@
 [package]
-name = "fitvr"
+name = "sweatxr"
 description = "VR fitness tracker for SteamVR: a wrist watch overlay with calories, active minutes and heart rate in every game"
 readme = "../../README.md"
 keywords = ["vr", "fitness", "steamvr", "openvr", "heart-rate"]
@@ -13,10 +13,10 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-fitvr-core.workspace = true
-fitvr-hr.workspace = true
-fitvr-vr.workspace = true
-fitvr-ui.workspace = true
+sweatxr-core.workspace = true
+sweatxr-hr.workspace = true
+sweatxr-vr.workspace = true
+sweatxr-ui.workspace = true
 slint.workspace = true
 directories.workspace = true
 serde_json.workspace = true

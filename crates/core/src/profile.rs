@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! The user's body data and preferences. Stored as one row; every field has a safe default so
 //! the app works before first run is finished.
 

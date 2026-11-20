@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Recorded and synthetic tracking traces. They stand in for a headset in every automated test.
 
 use crate::{PoseFrame, PoseSource, Vec3};
@@ -13,7 +16,7 @@ impl Replay {
         }
     }
 
-    /// Format written by `to_csv` (and by `fitvr --overlay --record`).
+    /// Format written by `to_csv` (and by `sweatxr --overlay --record`).
     pub fn from_csv(text: &str) -> Option<Self> {
         let mut frames = Vec::new();
         for line in text.lines().skip(1).filter(|l| !l.is_empty()) {

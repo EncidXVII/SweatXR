@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Slint views shared by the VR watch, the VR panel and the desktop window, plus the code that
 //! turns stored totals into what they show.
 

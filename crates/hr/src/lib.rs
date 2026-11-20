@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Heart rate sources: a BLE strap (live) or a scripted fake (tests, demos).
 
 mod ble;

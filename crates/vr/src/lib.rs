@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! OpenVR access plus the pure geometry of the watch and panel. Geometry is kept out of the FFI
 //! module so it is testable without SteamVR.
 
@@ -8,8 +11,8 @@ pub use ffi::{
     MAX_DEVICES, ROLE_LEFT, ROLE_RIGHT, TrackedDevicePose, Vr, VrError, config_dir, runtime_dir,
 };
 
-use fitvr_core::profile::Hand;
-use fitvr_core::{PoseFrame, Vec3};
+use sweatxr_core::profile::Hand;
+use sweatxr_core::{PoseFrame, Vec3};
 
 pub type Mat = HmdMatrix34;
 
@@ -75,7 +78,7 @@ pub const PANEL_DISTANCE_M: f32 = 0.72;
 const NEAR_FACE_M: f32 = 0.15;
 
 /// Watch relative to the controller's tip pose (-Z where it points, +Y its top, under the thumb), as
-/// on DesktopVR: behind the tip, on the back of the hand (left: -X, right: +X) and facing out of
+/// on WristXR: behind the tip, on the back of the hand (left: -X, right: +X) and facing out of
 /// it, where a real watch sits. On the controller's top it faced your chest when you turned the
 /// wrist to read it. Like a real watch, text runs along the forearm and its top points away from
 /// you when you raise the wrist across your chest, palm down, on either hand. `aspect` is the
@@ -124,7 +127,7 @@ pub fn compose(a: &Mat, b: &Mat) -> Mat {
     mul(a, b)
 }
 
-/// Whether the watch is looked at, as on DesktopVR: its face turned toward the eyes and the eyes
+/// Whether the watch is looked at, as on WristXR: its face turned toward the eyes and the eyes
 /// on it. Wide to show (a glance from the corner of the eye is enough), wider still to stay, and
 /// held for at least `GLANCE_HOLD_S`, so hand tremor and head bob at the edge never make it blink.
 #[derive(Clone, Copy, Debug, Default)]
@@ -136,7 +139,7 @@ pub struct Glance {
 /// Shows when the wrist is turned to within about 50 degrees of the eyes, the face within about 66
 /// degrees of them and the watch within 52 degrees of where the head looks; stays until those pass
 /// about 61, 81 and 70 degrees. The wrist's turn is its roll around the forearm alone; the face and
-/// look angles are what they always were, so only the wrist has to turn less far. As DesktopVR.
+/// look angles are what they always were, so only the wrist has to turn less far. As WristXR.
 /// (roll, facing, looking), cosines.
 const GLANCE_SHOW: (f32, f32, f32) = (0.64, 0.4, 0.62);
 const GLANCE_KEEP: (f32, f32, f32) = (0.48, 0.15, 0.34);

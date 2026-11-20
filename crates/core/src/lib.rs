@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Energy model, sessions, storage and export. No VR, Bluetooth or UI dependencies, so every
 //! rule here runs in plain unit tests against replayed traces.
 

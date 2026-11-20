@@ -1,23 +1,26 @@
-//! `fitvr --uninstall` (`Uninstall FitnessVR.cmd` in the Windows zip, `uninstall.sh` in the Linux archive): there
-//! is no installer, so this undoes what running it set up. It takes FitnessVR off SteamVR's list (no more start
-//! with SteamVR) and deletes its data: settings and workout history. Exported files (Documents/FitnessVR) stay, and
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
+//! `sweatxr --uninstall` (`Uninstall SweatXR.cmd` in the Windows zip, `uninstall.sh` in the Linux archive): there
+//! is no installer, so this undoes what running it set up. It takes SweatXR off SteamVR's list (no more start
+//! with SteamVR) and deletes its data: settings and workout history. Exported files (Documents/SweatXR) stay, and
 //! the program itself is the user's to delete. Never starts SteamVR.
 use std::error::Error;
 use std::path::Path;
 
-use fitvr_vr::{AppKind, Apps, ERR_NO_SERVER, config_dir};
+use sweatxr_vr::{AppKind, Apps, ERR_NO_SERVER, config_dir};
 
 use crate::setup::{APP_KEY, Dirs};
 
 /// What happened, for the wrapper scripts to show (a Windows GUI program has no console to print to).
 pub fn report_path() -> std::path::PathBuf {
-    std::env::temp_dir().join("fitvr-uninstall.txt")
+    std::env::temp_dir().join("sweatxr-uninstall.txt")
 }
 
 pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     let result = uninstall(dirs);
     let text = match &result {
-        Ok(()) => "FitnessVR is off SteamVR's list and its data is deleted.".to_owned(),
+        Ok(()) => "SweatXR is off SteamVR's list and its data is deleted.".to_owned(),
         Err(e) => format!("Not everything could be removed: {e}"),
     };
     let _ = std::fs::write(report_path(), format!("{text}\n"));
@@ -25,14 +28,12 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
 }
 
 fn uninstall(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
-    let manifest = dirs.data.join("fitvr.vrmanifest");
+    let manifest = dirs.data.join("sweatxr.vrmanifest");
     // A background connection never starts SteamVR, so it doubles as an "is it running" check.
     match Apps::init(AppKind::Background) {
         Ok(apps) => {
             if apps.running(APP_KEY) {
-                return Err(
-                    "the FitnessVR watch is running in SteamVR. Quit SteamVR, then uninstall.".into(),
-                );
+                return Err("the SweatXR watch is running in SteamVR. Quit SteamVR, then uninstall.".into());
             }
             let _ = apps.set_auto_launch(APP_KEY, false);
             let _ = apps.remove_manifest(&manifest);
@@ -61,18 +62,18 @@ fn uninstall(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     match std::fs::remove_dir_all(&dirs.data) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
             return Err(format!(
-                "{}: {e}. Quit FitnessVR (Windows: tray icon > Quit; Linux: close its window), then try again.",
+                "{}: {e}. Quit SweatXR (Windows: tray icon > Quit; Linux: close its window), then try again.",
                 dirs.data.display()
             )
             .into());
         }
         _ => {}
     }
-    // Windows keeps the data in `...\FitnessVR\data`: the emptied `FitnessVR` folder goes too (never anything else).
+    // Windows keeps the data in `...\SweatXR\data`: the emptied `SweatXR` folder goes too (never anything else).
     if let Some(parent) = dirs
         .data
         .parent()
-        .filter(|p| p.file_name().is_some_and(|n| n == "FitnessVR"))
+        .filter(|p| p.file_name().is_some_and(|n| n == "SweatXR"))
     {
         let _ = std::fs::remove_dir(parent);
     }
@@ -103,10 +104,10 @@ mod tests {
 
     #[test]
     fn uninstalling_drops_only_our_manifest_from_steamvrs_list() {
-        let dir = std::env::temp_dir().join(format!("fitvr-appconfig-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("sweatxr-appconfig-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let file = dir.join("appconfig.json");
-        let ours = r"C:\Users\Someone\AppData\Roaming\FitnessVR\data\fitvr.vrmanifest";
+        let ours = r"C:\Users\Someone\AppData\Roaming\SweatXR\data\sweatxr.vrmanifest";
         let theirs = r"C:\Program Files\Other\other.vrmanifest";
         let list = serde_json::json!({ "manifest_paths": [ours.to_uppercase().replace('\\', "/"), theirs] });
         std::fs::write(&file, list.to_string()).expect("write");

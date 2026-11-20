@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! design-tokens.json is the single source of colours, type, spacing and motion. It becomes the
 //! `Tokens` Slint global here, so a value can never drift between the watch, panel and desktop.
 

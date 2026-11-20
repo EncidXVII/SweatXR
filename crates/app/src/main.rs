@@ -1,8 +1,11 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! One binary, three jobs:
-//!   fitvr                  desktop window (and tray icon on Windows)
-//!   fitvr --overlay        the in-VR watch and panel; SteamVR starts this via the .vrmanifest
-//!   fitvr --register       register with SteamVR (auto-start follows the setting)
-//!   fitvr --uninstall      off SteamVR's list, data deleted (exports stay); see `uninstall`
+//!   sweatxr                  desktop window (and tray icon on Windows)
+//!   sweatxr --overlay        the in-VR watch and panel; SteamVR starts this via the .vrmanifest
+//!   sweatxr --register       register with SteamVR (auto-start follows the setting)
+//!   sweatxr --uninstall      off SteamVR's list, data deleted (exports stay); see `uninstall`
 //! Overlay options: --fake-hr (scripted strap), --record FILE (pose trace), --exit-after SECS,
 //! --pin-watch (watch fixed in front of the headset, for tests without controllers).
 

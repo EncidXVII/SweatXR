@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.encidxvii.FitnessVR</id>
-  <name>FitnessVR</name>
+  <id>io.github.encidxvii.SweatXR</id>
+  <name>SweatXR</name>
   <summary>Fitness watch for every SteamVR game</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
@@ -9,7 +9,7 @@
     <name>EncidXVII</name>
   </developer>
   <description>
-    <p>FitnessVR is a free VR fitness tracker. A watch on your wrist shows calories burned,
+    <p>SweatXR is a free VR fitness tracker. A watch on your wrist shows calories burned,
     active minutes, heart rate and a daily goal ring in any SteamVR game, with no mods or
     per-game support.</p>
     <ul>
@@ -20,22 +20,22 @@
     </ul>
     <p>Calorie numbers are estimates; this is not a medical device.</p>
   </description>
-  <launchable type="desktop-id">fitvr.desktop</launchable>
-  <url type="homepage">https://github.com/EncidXVII/FitnessVR</url>
-  <url type="bugtracker">https://github.com/EncidXVII/FitnessVR/issues</url>
-  <url type="vcs-browser">https://github.com/EncidXVII/FitnessVR</url>
+  <launchable type="desktop-id">sweatxr.desktop</launchable>
+  <url type="homepage">https://github.com/EncidXVII/SweatXR</url>
+  <url type="bugtracker">https://github.com/EncidXVII/SweatXR/issues</url>
+  <url type="vcs-browser">https://github.com/EncidXVII/SweatXR</url>
   <screenshots>
     <screenshot type="default">
       <caption>The wrist watch overlay</caption>
-      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__watch.snap.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/SweatXR/main/crates/ui/tests/snapshots/snapshots__watch.snap.png</image>
     </screenshot>
     <screenshot>
       <caption>The panel in VR</caption>
-      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__panel_today.snap.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/SweatXR/main/crates/ui/tests/snapshots/snapshots__panel_today.snap.png</image>
     </screenshot>
     <screenshot>
       <caption>History in the desktop app</caption>
-      <image>https://raw.githubusercontent.com/EncidXVII/FitnessVR/main/crates/ui/tests/snapshots/snapshots__desktop_history_month.snap.png</image>
+      <image>https://raw.githubusercontent.com/EncidXVII/SweatXR/main/crates/ui/tests/snapshots/snapshots__desktop_history_month.snap.png</image>
     </screenshot>
   </screenshots>
   <categories>

@@ -1,5 +1,5 @@
 [package]
-name = "fitvr-core"
+name = "sweatxr-core"
 description = "Energy model, sessions, storage and export"
 version.workspace = true
 edition.workspace = true

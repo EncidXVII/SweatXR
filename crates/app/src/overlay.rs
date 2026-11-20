@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! The in-VR process: a watch on the wrist and a panel opened from it. Runs once per compositor
 //! frame, ticks the tracker at 1 Hz, redraws the watch at most 10 Hz and only when something changed.
 
@@ -7,22 +10,22 @@ use std::io::Write;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use fitvr_core::intensity::IntensityMeter;
-use fitvr_core::profile::Hand;
-use fitvr_core::replay;
-use fitvr_core::time::now_unix;
-use fitvr_core::tracker::{Event, Tracker};
-use fitvr_hr::{BleHr, FakeHr};
-use fitvr_ui::offscreen::{Pointer, Surface, install};
-use fitvr_ui::view::progress;
-use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
-use fitvr_vr::{
+use slint::ComponentHandle;
+use sweatxr_core::intensity::IntensityMeter;
+use sweatxr_core::profile::Hand;
+use sweatxr_core::replay;
+use sweatxr_core::time::now_unix;
+use sweatxr_core::tracker::{Event, Tracker};
+use sweatxr_hr::{BleHr, FakeHr};
+use sweatxr_ui::offscreen::{Pointer, Surface, install};
+use sweatxr_ui::view::progress;
+use sweatxr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
+use sweatxr_vr::{
     AppKind, Apps, DOT_PX, DOT_WIDTH_M, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD,
     Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance,
     dot_pose, dot_texture, inverse, laser, laser_texture, near_face, panel_in_front, position, ray, uv_to_px,
     valid, watch_offset,
 };
-use slint::ComponentHandle;
 
 use crate::Opts;
 use crate::app::{App, Hr, Queue, wire};
@@ -35,7 +38,7 @@ const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
 const CELEBRATE: Duration = Duration::from_secs(4);
 /// Watch brightness when not looked at: still there at a glance, never in the way.
 const ALPHA_AWAY: f32 = 0.35;
-/// The watch brightens over this when looked at and dims over this after (linear, as DesktopVR);
+/// The watch brightens over this when looked at and dims over this after (linear, as WristXR);
 /// the panel fades in over `PANEL_FADE_S`.
 const WATCH_SHOW_S: f32 = 0.08;
 const WATCH_HIDE_S: f32 = 0.18;
@@ -168,12 +171,12 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let b = buzz.clone();
     fb.on_press(move || b.set(Some(Buzz::Press)));
 
-    let ov_watch = vr.create_overlay("fitnessvr.watch", "FitnessVR watch")?;
-    let ov_panel = vr.create_overlay("fitnessvr.panel", "FitnessVR")?;
+    let ov_watch = vr.create_overlay("sweatxr.watch", "SweatXR watch")?;
+    let ov_panel = vr.create_overlay("sweatxr.panel", "SweatXR")?;
     vr.set_width(ov_watch, WATCH_WIDTH_M)?;
     vr.set_width(ov_panel, PANEL_WIDTH_M)?;
-    let ov_laser = vr.create_overlay("fitnessvr.laser", "FitnessVR pointer")?;
-    let ov_dot = vr.create_overlay("fitnessvr.dot", "FitnessVR pointer dot")?;
+    let ov_laser = vr.create_overlay("sweatxr.laser", "SweatXR pointer")?;
+    let ov_dot = vr.create_overlay("sweatxr.dot", "SweatXR pointer dot")?;
     vr.set_width(ov_dot, DOT_WIDTH_M)?;
     // Over the panel and the watch, which sit at the dot's depth.
     for (ov, order) in [(ov_laser, 1), (ov_dot, 2)] {
@@ -223,13 +226,13 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         // Beam and dot in the theme's accent, redrawn when the theme changes.
         if accent != Some(app.profile.theme) {
             accent = Some(app.profile.theme);
-            let rgb = fitvr_ui::accent_rgb(app.profile.theme);
+            let rgb = sweatxr_ui::accent_rgb(app.profile.theme);
             tex.upload(&vr, ov_laser, 2, &mut laser_texture(rgb), LASER_PX);
             tex.upload(&vr, ov_dot, 3, &mut dot_texture(rgb), (DOT_PX, DOT_PX));
         }
         let poses = vr.poses();
         let (left, right) = (vr.controller(ROLE_LEFT), vr.controller(ROLE_RIGHT));
-        let frame = fitvr_vr::frame(started.elapsed().as_secs_f64(), &poses[..], left, right);
+        let frame = sweatxr_vr::frame(started.elapsed().as_secs_f64(), &poses[..], left, right);
         if let Some(f) = record.as_mut() {
             writeln!(f, "{}", replay::csv_row(&frame))?;
         }
@@ -535,7 +538,7 @@ impl Textures {
 
 /// Places an overlay at world pose `m`, held by a tracked device (its index and pose this frame)
 /// when there is one, so the compositor moves it with that device between our frames.
-fn ride(vr: &Vr, ov: u64, m: &Mat, device: Option<(u32, &Mat)>) -> Result<(), fitvr_vr::VrError> {
+fn ride(vr: &Vr, ov: u64, m: &Mat, device: Option<(u32, &Mat)>) -> Result<(), sweatxr_vr::VrError> {
     match device {
         Some((i, pose)) => vr.attach(ov, i, &compose(&inverse(pose), m)),
         None => vr.place(ov, m),
@@ -577,7 +580,7 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
             tracing::warn!("{e}");
         }
     }
-    // As on DesktopVR: the watch fades with the turn of the wrist and the look of the eyes, and
+    // As on WristXR: the watch fades with the turn of the wrist and the look of the eyes, and
     // hides when the controller is at the face.
     let target = match (wrist.tip, head) {
         _ if full => 1.0,
@@ -614,8 +617,8 @@ struct Applied {
     hr_device: Option<String>,
 }
 
-impl From<&fitvr_core::profile::Profile> for Applied {
-    fn from(p: &fitvr_core::profile::Profile) -> Self {
+impl From<&sweatxr_core::profile::Profile> for Applied {
+    fn from(p: &sweatxr_core::profile::Profile) -> Self {
         Self {
             auto_start: p.auto_start,
             hr_device: p.hr_device.clone(),

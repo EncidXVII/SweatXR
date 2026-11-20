@@ -1,7 +1,10 @@
+# Copyright (C) 2026 EncidXVII
+# SPDX-License-Identifier: GPL-3.0-only
+
 # AUTO GATE 7: SteamVR smoke test with the null driver, no headset needed.
 #   powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1 -Seconds 1800
 #   powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1 -Register
-# -Register checks the install path instead: with SteamVR running, `fitvr --register` must make
+# -Register checks the install path instead: with SteamVR running, `sweatxr --register` must make
 # SteamVR start the overlay, which then exits cleanly when SteamVR quits. That overlay uses the
 # real data directory, since SteamVR starts it without this script's environment.
 # Backs up steamvr.vrsettings and appconfig.json, enables driver_null, runs the overlay with a
@@ -12,7 +15,7 @@ param(
     [int]$Seconds = 120,
     # Caches (glyphs, SQLite pages, first panel render) fill early; growth is measured after this.
     [int]$Warmup = 60,
-    [string]$Exe = "$PSScriptRoot\..\target\release\fitvr.exe",
+    [string]$Exe = "$PSScriptRoot\..\target\release\sweatxr.exe",
     [string]$Steam = "${env:ProgramFiles(x86)}\Steam",
     [switch]$Register
 )
@@ -23,9 +26,9 @@ if (Get-Process $vrNames -ErrorAction SilentlyContinue) { throw 'SteamVR is runn
 $config = Join-Path $Steam 'config'
 $settings = Join-Path $config 'steamvr.vrsettings'
 $appconfig = Join-Path $config 'appconfig.json'
-$autolaunch = Join-Path $config 'vrappconfig\local.fitnessvr.overlay.vrappconfig'
+$autolaunch = Join-Path $config 'vrappconfig\local.sweatxr.overlay.vrappconfig'
 $hadAutolaunch = Test-Path $autolaunch
-$backup = Join-Path $env:TEMP "fitvr-smoke-$PID"
+$backup = Join-Path $env:TEMP "sweatxr-smoke-$PID"
 New-Item -ItemType Directory -Force $backup | Out-Null
 Copy-Item $settings, $appconfig $backup -ErrorAction SilentlyContinue
 if ($hadAutolaunch) { Copy-Item $autolaunch $backup }
@@ -40,10 +43,10 @@ try {
     }
     $json | ConvertTo-Json -Depth 32 | Set-Content $settings -Encoding utf8
     if ($Register) {
-        # Start as a first-time user: SteamVR running, FitnessVR not registered yet.
+        # Start as a first-time user: SteamVR running, SweatXR not registered yet.
         Remove-Item $autolaunch -ErrorAction SilentlyContinue
         $apps = Get-Content $appconfig -Raw | ConvertFrom-Json
-        $apps.manifest_paths = @($apps.manifest_paths | Where-Object { $_ -notmatch 'fitvr\.vrmanifest$' })
+        $apps.manifest_paths = @($apps.manifest_paths | Where-Object { $_ -notmatch 'sweatxr\.vrmanifest$' })
         [IO.File]::WriteAllText($appconfig, ($apps | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
     }
 
@@ -58,12 +61,12 @@ try {
     if ($Register) {
         "SteamVR processes: $((Get-Process $vrNames -ErrorAction SilentlyContinue).Name -join ', ')"
         $reg = Start-Process $Exe -ArgumentList '--register' -Wait -PassThru
-        $realData = Join-Path $env:APPDATA 'FitnessVR\data'
+        $realData = Join-Path $env:APPDATA 'SweatXR\data'
         Get-Content (Join-Path $realData 'register.log')
         $deadline = (Get-Date).AddSeconds(30)
         do {
             Start-Sleep 2
-            $ov = Get-CimInstance Win32_Process -Filter "Name = 'fitvr.exe'" | Where-Object CommandLine -match '--overlay'
+            $ov = Get-CimInstance Win32_Process -Filter "Name = 'sweatxr.exe'" | Where-Object CommandLine -match '--overlay'
         } while (-not $ov -and (Get-Date) -lt $deadline)
         Start-Sleep 20
         # Closing the SteamVR window from a script does not quit SteamVR, so stop it; the
@@ -77,7 +80,7 @@ try {
         $log | Select-Object -Last 10
         $failed = $reg.ExitCode -ne 0 -or -not $ov -or -not ($log -match 'overlay stopped') -or ($log -match ' ERROR ')
     } else {
-    $env:FITVR_DATA_DIR = $data
+    $env:SWEATXR_DATA_DIR = $data
     $p = Start-Process $Exe -ArgumentList '--overlay', '--fake-hr', '--pin-watch', '--exit-after', $Seconds -PassThru
     Start-Sleep $Warmup
     $p.Refresh()

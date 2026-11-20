@@ -7,50 +7,50 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
-- Uninstall: `Uninstall FitnessVR.cmd` in the Windows folder, `uninstall.sh` in the Linux archive, or
-  `fitvr --uninstall`. It takes FitnessVR off SteamVR's list, so it no longer starts with SteamVR, and deletes
-  its settings and workout history; exports in Documents/FitnessVR stay. It never starts SteamVR. Same as
-  DesktopVR.
+- Uninstall: `Uninstall SweatXR.cmd` in the Windows folder, `uninstall.sh` in the Linux archive, or
+  `sweatxr --uninstall`. It takes SweatXR off SteamVR's list, so it no longer starts with SteamVR, and deletes
+  its settings and workout history; exports in Documents/SweatXR stay. It never starts SteamVR. Same as
+  WristXR.
 
 ### Fixed
 - Pulling the trigger on the watch or the panel no longer also pulls it in the game: while the pointing hand is
-  on them, its trigger is FitnessVR's alone. It changes hands only once let go, so a trigger held in the game
-  never freezes there. The other hand is never touched. Same as DesktopVR.
-- The very first launch gets its trigger: FitnessVR tells SteamVR which app it is before loading its controls
+  on them, its trigger is SweatXR's alone. It changes hands only once let go, so a trigger held in the game
+  never freezes there. The other hand is never touched. Same as WristXR.
+- The very first launch gets its trigger: SweatXR tells SteamVR which app it is before loading its controls
   (they could otherwise work only after a restart), and loads them again once if a tracked controller's trigger
-  still never arrives. Same as DesktopVR.
+  still never arrives. Same as WristXR.
 - The pointer dot no longer lags behind the beam: it is its own overlay, moved in the same frame, and the beam
   rides on the controller, so both keep up with your hand at the headset's rate. The overlay now runs once per
   headset frame instead of 50 times a second. Beam and dot take the theme's accent.
 - "Start with SteamVR" now reaches SteamVR as soon as you flip it, in the desktop window or in VR (turned on
   while SteamVR runs, the watch starts at once). It no longer flips back: neither window writes the other's old
   settings back over a change any more.
-- Tray: Quit removes the icon and closes FitnessVR. A left click opens the window; the menu is on the right
+- Tray: Quit removes the icon and closes SweatXR. A left click opens the window; the menu is on the right
   button.
 
 ### Changed
 - The watch sits on the back of the wrist, facing out of it, where a real watch is. It was on the controller's top,
-  under the thumb, so it faced your chest when you turned the wrist to read it. Same as DesktopVR.
+  under the thumb, so it faced your chest when you turned the wrist to read it. Same as WristXR.
 - The watch shows from a wider look: within about 52 degrees of where you look (was 45), and stays to 70 (was
-  63). The wrist's turn is unchanged. Same as DesktopVR.
-- New logo: a heartbeat in straight, leaning bars, in the same family as DesktopVR's and Parallax's. It is the
+  63). The wrist's turn is unchanged. Same as WristXR.
+- New logo: a heartbeat in straight, leaning bars, in the same family as WristXR's and PortXR's. It is the
   app and window icon, the tray icon (lime on a dark taskbar, dark on a light one, switching with Windows), the
-  picture SteamVR shows next to FitnessVR, the Linux icon, and it sits beside the name in the desktop window in
+  picture SteamVR shows next to SweatXR, the Linux icon, and it sits beside the name in the desktop window in
   the theme's accent. Every icon is drawn from one script, packaging/brand/marks.py.
 - The watch needs a quarter less turn of the wrist: its roll around the forearm must be within about 50 degrees
-  of your eyes to show and 61 to stay. Where your arm and head are counts exactly as before. Same as DesktopVR.
+  of your eyes to show and 61 to stay. Where your arm and head are counts exactly as before. Same as WristXR.
 
 ### Added
 - Themes: Lime, Mint, Aqua, Sky, Violet, Pink, Amber or White as the accent (Setup in VR, Settings > Look on
-  the desktop), the same eight as DesktopVR. The watch, panel and desktop window recolour at once; warning red
+  the desktop), the same eight as WristXR. The watch, panel and desktop window recolour at once; warning red
   stays red, and dark text on every accent is at least 4.5:1.
 
 ### Changed
-- New look in line with DesktopVR: neutral graphite greys, soft rounded surfaces, Anton headings over
+- New look in line with WristXR: neutral graphite greys, soft rounded surfaces, Anton headings over
   Barlow (bundled, with a semibold weight for chosen tabs and filled buttons).
-  The watch is the DesktopVR card (14 cm, 560 px): ring with today's kcal, a pill naming the game
+  The watch is the WristXR card (14 cm, 560 px): ring with today's kcal, a pill naming the game
   being counted, active minutes and heart rate. A hint or warning shows as one line under it.
-- The VR panel is DesktopVR's 800 x 600 rail menu (50 cm at arm's length): Today, Week, You,
+- The VR panel is WristXR's 800 x 600 rail menu (50 cm at arm's length): Today, Week, You,
   Strap, Setup. Settings are split across the rail so no page needs sub-tabs. First run has a
   second step that teaches opening the panel from the watch.
 - The desktop app has a left nav; Today adds this week's chart, History shows burned, active and
@@ -61,12 +61,12 @@ All notable changes to this project are documented here. Format based on
 
 ### Fixed
 - The watch sat at a different angle on each controller model and read sideways when you raised
-  your wrist. It now uses the controller's tip pose, like DesktopVR: text runs along the forearm,
+  your wrist. It now uses the controller's tip pose, like WristXR: text runs along the forearm,
   top away from you, on either hand. The laser starts from the tip too.
-- Glancing at the watch brightens it, as on DesktopVR, at a wide angle (a look from the corner of
+- Glancing at the watch brightens it, as on WristXR, at a wide angle (a look from the corner of
   the eye is enough). Once bright it holds and needs a clear look away to dim, so it no longer
   flickers at the edge. It dims to 35 % when you look away.
-- Closing the FitnessVR window quits it; it no longer keeps running unseen in the background.
+- Closing the SweatXR window quits it; it no longer keeps running unseen in the background.
 - The VR overlay never starts SteamVR itself: started any other way while SteamVR is off, it
   leaves at once.
 - Pointing just below a short watch card no longer counts as pointing at the watch.

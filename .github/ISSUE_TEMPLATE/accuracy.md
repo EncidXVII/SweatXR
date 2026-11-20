@@ -1,6 +1,6 @@
 ---
 name: Accuracy report
-about: Compare FitnessVR's calories with a fitness watch or strap app
+about: Compare SweatXR's calories with a fitness watch or strap app
 labels: accuracy
 ---
 
@@ -8,11 +8,11 @@ labels: accuracy
 |---|---|
 | Game | |
 | Minutes played | |
-| FitnessVR kcal | |
+| SweatXR kcal | |
 | Reference kcal (device / app) | |
-| Heart rate strap used by FitnessVR? | yes / no |
+| Heart rate strap used by SweatXR? | yes / no |
 | Headset and controllers | |
-| Weight, age, sex as set in FitnessVR | (optional) |
+| Weight, age, sex as set in SweatXR | (optional) |
 
 **How intense was it?** (easy / moderate / hard)
 

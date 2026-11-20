@@ -1,5 +1,8 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Whether the UI may animate: Windows' "Animation effects" setting (Settings > Accessibility >
-//! Visual effects), as DesktopVR reads it. Off keeps every state change and drops the movement.
+//! Visual effects), as WristXR reads it. Off keeps every state change and drops the movement.
 
 #[cfg(windows)]
 pub fn animations_enabled() -> bool {

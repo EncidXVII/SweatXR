@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! AUTO GATE 3 (rules): WCAG AA contrast for every listed token pair, minimum text size, and no
 //! colour or font size in the views that bypasses the tokens.
 
@@ -49,7 +52,7 @@ fn every_theme_accent_works_where_lime_does() {
     let t = tokens();
     let color = |k: &str| t["color"][k].as_str().expect("color").to_owned();
     let themes = t["themes"].as_array().expect("themes");
-    assert_eq!(themes.len(), usize::from(fitvr_core::profile::THEMES));
+    assert_eq!(themes.len(), usize::from(sweatxr_core::profile::THEMES));
     assert_eq!(
         themes[0]["accent"], t["color"]["accent"],
         "the first theme is the default accent"

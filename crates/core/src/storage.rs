@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! One SQLite file. Every tick is its own transaction, so killing the process loses at most the
 //! current second. WAL lets the desktop window read while the overlay writes.
 
@@ -412,7 +415,7 @@ mod tests {
 
     #[test]
     fn totals_survive_a_kill_mid_session() {
-        let dir = std::env::temp_dir().join(format!("fitvr-kill-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("sweatxr-kill-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("t.db");
         let _ = std::fs::remove_file(&path);

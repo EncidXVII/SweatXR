@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 // The three surfaces. Same pages and tokens everywhere; only the frame differs.
 import { Tokens, Mode } from "@tokens";
 import "fonts/Anton-Regular.ttf";
@@ -29,7 +32,7 @@ component Reading inherits HorizontalLayout {
     }
 }
 
-// The DesktopVR watch card, 14 cm on the wrist. One glance answers one question: the ring with
+// The WristXR watch card, 14 cm on the wrist. One glance answers one question: the ring with
 // today's kcal inside; the session, active minutes and heart rate sit beside it.
 // The card grows one line down (never up: the ring row stays put) for a hint or a warning, and
 // fades to lime for a few seconds at the goal. The texture is the card at its tallest; below a
@@ -146,7 +149,7 @@ export component WatchView inherits Window {
                 }
             }
         }
-        // One line under the numbers for a hint or a warning (DesktopVR's low-battery strip).
+        // One line under the numbers for a hint or a warning (WristXR's low-battery strip).
         Rectangle {
             x: 12px;
             y: 232px;
@@ -274,7 +277,7 @@ component RailTab inherits Rectangle {
     }
 }
 
-// The DesktopVR rail menu, 50 cm wide at arm's length, opened from the watch.
+// The WristXR rail menu, 50 cm wide at arm's length, opened from the watch.
 export component PanelView inherits Window {
     in-out property <int> tab;
     width: 800px;
@@ -404,8 +407,8 @@ export component DesktopWindow inherits Window {
     in-out property <int> tab;
     // Below this the sidebar shows icons only and pages stack into one column.
     out property <bool> narrow: self.width < 1024px;
-    title: "FitnessVR";
-    icon: @image-url("../../../packaging/brand/fitnessvr-256.png");
+    title: "SweatXR";
+    icon: @image-url("../../../packaging/brand/sweatxr-256.png");
     preferred-width: 1200px;
     preferred-height: 800px;
     // Small enough to snap side by side on a 1440p screen at 150% and to fit a 1080p laptop.
@@ -431,7 +434,7 @@ export component DesktopWindow inherits Window {
                     alignment: root.narrow ? center : start;
                     // The mark in the theme's accent, as tall as the wordmark's capitals.
                     Image {
-                        source: @image-url("../../../packaging/brand/fitnessvr-mark.svg");
+                        source: @image-url("../../../packaging/brand/sweatxr-mark.svg");
                         colorize: Tokens.accent;
                         width: Tokens.type-brand * 1.15;
                         height: self.width;
@@ -439,7 +442,7 @@ export component DesktopWindow inherits Window {
                     }
                     if !root.narrow: Text {
                         vertical-alignment: center;
-                        text: "FITNESSVR";
+                        text: "SWEATXR";
                         color: Tokens.ink;
                         font-size: Tokens.type-brand;
                         font-family: Tokens.font-display;

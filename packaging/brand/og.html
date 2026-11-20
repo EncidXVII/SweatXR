@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- Social preview (1280x640): the card shown when the repository's link is shared. Render: packaging/brand/render-og.ps1 -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Anton;src:url("../../crates/ui/ui/fonts/Anton-Regular.ttf")}
+@font-face{font-family:Barlow;font-weight:400;src:url("../../crates/ui/ui/fonts/Barlow-Regular.ttf")}
+@font-face{font-family:Barlow;font-weight:600;src:url("../../crates/ui/ui/fonts/Barlow-SemiBold.ttf")}
+html,body{margin:0;width:1280px;height:640px;overflow:hidden;background:#0B0B0C;color:#F5F5F7;font-family:Barlow,sans-serif}
+.name{position:absolute;left:64px;top:52px;display:flex;align-items:center;gap:16px;font:400 40px/1 Anton,sans-serif;letter-spacing:.5px;text-transform:uppercase}
+.name img{width:56px;height:56px}
+.c{position:absolute;left:64px;top:156px;width:620px;display:flex;flex-direction:column;gap:26px}
+.t{font:400 74px/1.04 Anton,sans-serif;text-transform:uppercase;white-space:nowrap}
+.t em{font-style:normal;color:#C6FF1A}
+.s{width:560px;font-size:27px;line-height:1.36;color:#A8A8AF}
+.b{position:absolute;left:64px;bottom:52px;display:flex;gap:12px;font-size:22px;font-weight:600}
+.b span{padding:11px 18px;border-radius:12px;background:#1D1D20;color:#F5F5F7}
+.b span.a{background:#C6FF1A;color:#0B0B0C}
+.shot{position:absolute;border-radius:22px;border:1px solid #2A2A2E;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+</style></head><body>
+<img class="shot" src="../../crates/ui/tests/snapshots/snapshots__watch.snap.png" style="right:56px;top:48px;width:430px">
+<img class="shot" src="../../crates/ui/tests/snapshots/snapshots__panel_today.snap.png" style="right:56px;bottom:-130px;width:470px">
+<div class="name"><img src="sweatxr-mark.svg" alt="">SweatXR</div>
+<div class="c"><div class="t">VR fitness and<br><em>calorie tracker</em></div><div class="s">Calories, active minutes and heart rate on your wrist in every SteamVR game. Bluetooth heart rate straps, history per game. No account, no cloud.</div></div>
+<div class="b"><span class="a">Free and open source</span><span>every SteamVR game</span></div>
+</body></html>

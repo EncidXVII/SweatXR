@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Heart Rate Measurement characteristic (0x2A37), Bluetooth GATT spec.
 //! Flags: bit 0 = 16-bit value, bits 1-2 = contact status, bit 3 = energy, bit 4 = RR intervals.
 

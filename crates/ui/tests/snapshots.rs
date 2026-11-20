@@ -1,17 +1,20 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! AUTO GATE 3: every view rendered offscreen matches its approved PNG snapshot. The data comes
 //! from the real tracker and store, fed by synthetic movement and a fake heart rate strap.
 //! Review changes with `cargo insta review`.
 
 use std::time::Instant;
 
-use fitvr_core::profile::Profile;
-use fitvr_core::storage::Store;
-use fitvr_core::tracker::Tracker;
-use fitvr_hr::{Device, FakeHr, Status};
-use fitvr_ui::offscreen::{Surface, install};
-use fitvr_ui::view::{Live, Nav, Range, refresh};
-use fitvr_ui::{AppState, DesktopWindow, Mode, PanelView, WatchView};
 use slint::ComponentHandle;
+use sweatxr_core::profile::Profile;
+use sweatxr_core::storage::Store;
+use sweatxr_core::tracker::Tracker;
+use sweatxr_hr::{Device, FakeHr, Status};
+use sweatxr_ui::offscreen::{Surface, install};
+use sweatxr_ui::view::{Live, Nav, Range, refresh};
+use sweatxr_ui::{AppState, DesktopWindow, Mode, PanelView, WatchView};
 
 const DAY: i64 = 86_400;
 /// 2025-11-04 18:00 UTC, a Tuesday.
@@ -229,7 +232,7 @@ fn every_view_matches_its_snapshot() {
     check("watch_empty", &mut watch);
 }
 
-/// UI spike numbers for DECISIONS.md: `cargo test --release -p fitvr-ui -- --ignored --nocapture`.
+/// UI spike numbers for DECISIONS.md: `cargo test --release -p sweatxr-ui -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn render_cost() {

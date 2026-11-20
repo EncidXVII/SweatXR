@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Renders Slint windows into RGBA buffers with the software renderer, for overlay textures and
 //! snapshot tests. Each `Surface` owns one window; only changed regions are repainted.
 

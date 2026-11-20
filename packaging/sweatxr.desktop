@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=FitnessVR
+Name=SweatXR
 Comment=Calories, active minutes and heart rate on your wrist in every SteamVR game
-Exec=fitvr
-Icon=fitvr
+Exec=sweatxr
+Icon=sweatxr
 Categories=Game;Sports;
 Terminal=false
 Keywords=VR;fitness;calories;workout;exercise;heart rate;SteamVR;tracker;

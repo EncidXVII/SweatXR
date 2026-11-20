@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! QA: drive the real views with pointer events, the way the VR pointer and the mouse do, and
 //! check every control reaches its callback. Also renders edge cases (imperial units, huge
 //! numbers, long names, scanning) into snapshots so layout regressions show up in review.
@@ -5,14 +8,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use fitvr_core::profile::{Profile, Units};
-use fitvr_core::storage::Store;
-use fitvr_core::tracker::Tracker;
-use fitvr_hr::{Device, Status};
-use fitvr_ui::offscreen::{Pointer, Surface, install};
-use fitvr_ui::view::{Live, Nav, refresh};
-use fitvr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use slint::ComponentHandle;
+use sweatxr_core::profile::{Profile, Units};
+use sweatxr_core::storage::Store;
+use sweatxr_core::tracker::Tracker;
+use sweatxr_hr::{Device, Status};
+use sweatxr_ui::offscreen::{Pointer, Surface, install};
+use sweatxr_ui::view::{Live, Nav, refresh};
+use sweatxr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 
 const NOW: i64 = 20_396 * 86_400 + 64_800;
 
@@ -309,7 +312,7 @@ fn edge_cases_render() {
 
 #[test]
 fn desktop_states_render_at_minimum_size() {
-    use fitvr_ui::DesktopWindow;
+    use sweatxr_ui::DesktopWindow;
     install();
     let p = Profile {
         onboarded: true,
@@ -346,7 +349,7 @@ fn desktop_states_render_at_minimum_size() {
     insta::assert_binary_snapshot!("desktop_min_history_week.png", png(&mut desk));
     desk.ui.set_tab(2);
     desk.ui.global::<AppState>().set_export_status(
-        r"Saved C:\Users\someone with a long name\Documents\FitnessVR\fitvr-2026-11-04.tcx".into(),
+        r"Saved C:\Users\someone with a long name\Documents\SweatXR\sweatxr-2026-11-04.tcx".into(),
     );
     insta::assert_binary_snapshot!("desktop_min_export_saved.png", png(&mut desk));
     desk.ui.set_tab(3);

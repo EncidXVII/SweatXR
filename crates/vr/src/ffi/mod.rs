@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Thin binding over the OpenVR flat C API. The runtime is loaded at run time (the
 //! `openvr_api` library next to the exe, else the one inside the SteamVR install), so the build
 //! needs no SDK and the app starts fine without SteamVR. All `unsafe` in this crate lives here.

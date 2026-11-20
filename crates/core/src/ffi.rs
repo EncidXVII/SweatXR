@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Local UTC offset from the C runtime. std has no time zone support and no tz crate is in the
 //! allowed set; both CRTs already link into every binary.
 

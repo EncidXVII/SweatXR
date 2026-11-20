@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Live strap over btleplug. Runs on its own thread with a single-threaded tokio runtime so the
 //! render loop never blocks on Bluetooth. Reconnects forever while a strap is chosen.
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Motion intensity: 1 s EMA of weighted head + hand linear speed, normalised to body height so
 //! a tall player's longer reach does not read as more effort. Speeds are frame-invariant, so a
 //! recentred or streamed tracking space (Steam Link, Frame) needs no special handling.

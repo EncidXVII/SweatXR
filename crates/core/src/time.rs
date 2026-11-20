@@ -1,3 +1,6 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Unix seconds, local days and ISO 8601. Days are counted in local time so a session at
 //! 23:59 lands on the day the user lived it.
 

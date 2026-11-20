@@ -1,12 +1,15 @@
+// Copyright (C) 2026 EncidXVII
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Store + live readings -> what every view shows. One function so the watch, panel, desktop
 //! and snapshot tests can never disagree on a number or a label.
 
-use fitvr_core::energy::MIN_CALIBRATION_SAMPLES;
-use fitvr_core::profile::{Hand, Profile, Sex, Units};
-use fitvr_core::storage::{GameTotal, Result, Store};
-use fitvr_core::time::{Day, civil, weekday};
-use fitvr_hr::{Device, Status};
 use slint::{Model, ModelRc, SharedString, VecModel};
+use sweatxr_core::energy::MIN_CALIBRATION_SAMPLES;
+use sweatxr_core::profile::{Hand, Profile, Sex, Units};
+use sweatxr_core::storage::{GameTotal, Result, Store};
+use sweatxr_core::time::{Day, civil, weekday};
+use sweatxr_hr::{Device, Status};
 
 use crate::{AppState, Bar, GameRow, HrDevice, ProfileData, SessionRow};
 
@@ -481,7 +484,7 @@ mod tests {
 
     #[test]
     fn period_labels() {
-        let d = fitvr_core::time::days_from_civil(2026, 11, 4);
+        let d = sweatxr_core::time::days_from_civil(2026, 11, 4);
         assert_eq!(period_label(d - 6, d, Range::Week, 0), "This week");
         assert_eq!(period_label(d - 13, d - 7, Range::Week, -1), "Last week");
         assert_eq!(period_label(d - 20, d - 14, Range::Week, -2), "15 Oct - 21 Oct");
