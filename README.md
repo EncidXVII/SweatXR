@@ -26,8 +26,8 @@ It keeps history per day and per game, and your data never leaves your computer.
 · [All downloads](https://github.com/EncidXVII/SweatXR/releases/latest)
 
 > **Status: first release, looking for testers.** Calorie numbers are estimates and this is not
-> a medical device. Comparisons against your fitness watch are the most useful feedback; see
-> [Contributing](CONTRIBUTING.md).
+> a medical device. Comparisons against your fitness watch are what it needs most, then reports
+> from Linux and Steam Frame: see [Status and help wanted](#status-and-help-wanted).
 
 ## At a glance
 
@@ -40,6 +40,7 @@ It keeps history per day and per game, and your data never leaves your computer.
 | **Heart rate** | Optional: any Bluetooth LE chest strap or armband with the standard heart rate service; without one it estimates from head and hand movement |
 | **Privacy** | Everything stays in one file on your computer. No account, no cloud, no network access |
 | **Price** | Free. No subscription |
+| **Status** | First release (1.0): calorie numbers are estimates that need comparisons against fitness watches; Linux and Steam Frame builds need testers |
 | **License** | Open source, `GPL-3.0-only`, © 2026 EncidXVII |
 
 ## Features
@@ -116,6 +117,20 @@ All numbers are estimates.
   the strap is off.
 - **What counts:** only time in play. Standing in menus does not count, and the idle minutes
   before a session ends are dropped.
+
+## Status and help wanted
+
+SweatXR is a first release (1.0). Where each part stands, and what moves it forward:
+
+| Area | Where it stands | What helps |
+|---|---|---|
+| **Calorie accuracy** | The numbers are estimates. The aim is within about 20% of a fitness watch with a heart rate strap and about 35% without one; it takes sessions from more people and more kinds of games to confirm and tune that | An [accuracy report](https://github.com/EncidXVII/SweatXR/issues/new/choose): 10 minutes of play with a strap and a fitness watch running, then both numbers. Rhythm, boxing and slow games all help |
+| **Linux and Steam Frame (arm64)** | Built and packaged for both. Reports from real machines are still missing | Install it, play a session and say what worked: the watch, the panel, Bluetooth heart rate, start with SteamVR |
+| **Controllers** | The watch sits on the back of the wrist, and that spot has to suit every controller shape | Tell us how it sits on yours: Index, Touch, Steam Frame, Vive |
+| **Heart rate straps** | Any strap, armband or watch with the standard Bluetooth LE heart rate service should pair | Name the strap you paired, working or not |
+| **Not a medical device** | A fitness estimate for play, not a measurement | Nothing: it stays that way |
+
+How to send any of these: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## FAQ
 
