@@ -1,4 +1,7 @@
-<img src="packaging/brand/sweatxr-mark.svg" width="72" alt="SweatXR logo">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="packaging/brand/sweatxr-mark.svg">
+  <img src="packaging/brand/sweatxr-mark-ink.svg" width="72" alt="SweatXR logo">
+</picture>
 
 # SweatXR: free VR fitness and calorie tracker for every SteamVR game
 
