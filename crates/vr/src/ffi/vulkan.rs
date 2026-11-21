@@ -13,6 +13,9 @@ use super::{VrError, VulkanTextureData};
 
 /// Colours are sRGB-encoded bytes; an sRGB image lets the compositor blend them correctly.
 const FORMAT: vk::Format = vk::Format::R8G8B8A8_SRGB;
+/// Longest wait for the GPU to finish one small copy (normally well under a millisecond). A stalled or lost device
+/// gives an error and a skipped picture, never an overlay hung for good while it holds the trigger from the game.
+const GPU_WAIT_NS: u64 = 1_000_000_000;
 
 fn vk_err(call: &'static str) -> impl Fn(vk::Result) -> VrError {
     move |r| VrError {
@@ -277,10 +280,9 @@ impl Gpu {
         // SAFETY: the fence wait guarantees the previous copy finished before the staging
         // memory is overwritten; `mapped` covers exactly width * height * 4 bytes.
         unsafe {
-            d.wait_for_fences(&[s.fence], true, u64::MAX)
+            d.wait_for_fences(&[s.fence], true, GPU_WAIT_NS)
                 .map_err(vk_err("vkWaitForFences"))?;
             std::ptr::copy_nonoverlapping(rgba.as_ptr(), s.mapped, rgba.len());
-            d.reset_fences(&[s.fence]).map_err(vk_err("vkResetFences"))?;
             d.begin_command_buffer(
                 s.cmd,
                 &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
@@ -356,16 +358,21 @@ impl Gpu {
             d.end_command_buffer(s.cmd)
                 .map_err(vk_err("vkEndCommandBuffer"))?;
             let cmds = [s.cmd];
+            // Reset only now: a failure above leaves the fence signalled, so the next upload does not wait on a
+            // copy that was never sent.
+            d.reset_fences(&[s.fence]).map_err(vk_err("vkResetFences"))?;
             d.queue_submit(
                 self.queue,
                 &[vk::SubmitInfo::default().command_buffers(&cmds)],
                 s.fence,
             )
             .map_err(vk_err("vkQueueSubmit"))?;
-            d.wait_for_fences(&[s.fence], true, u64::MAX)
+            // Sent: the image ends in TRANSFER_SRC_OPTIMAL even if the wait below gives up, and the next upload
+            // waits for this copy first.
+            s.initialised = true;
+            d.wait_for_fences(&[s.fence], true, GPU_WAIT_NS)
                 .map_err(vk_err("vkWaitForFences"))?;
         }
-        s.initialised = true;
         Ok(VulkanTextureData {
             image: s.image.as_raw(),
             device: self.device.handle().as_raw() as *mut c_void,

@@ -8,6 +8,8 @@ use std::cell::Cell;
 use std::error::Error;
 use std::io::Write;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use slint::ComponentHandle;
@@ -22,9 +24,9 @@ use sweatxr_ui::view::progress;
 use sweatxr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use sweatxr_vr::{
     AppKind, Apps, DOT_PX, DOT_WIDTH_M, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD,
-    Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Vr, WATCH_WIDTH_M, compose, distance,
-    dot_pose, dot_texture, inverse, laser, laser_texture, near_face, panel_in_front, position, ray, uv_to_px,
-    valid, watch_offset,
+    Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Server, Vr, WATCH_WIDTH_M, compose,
+    distance, dot_pose, dot_texture, inverse, laser, laser_texture, near_face, panel_in_front, position, ray,
+    uv_to_px, valid, watch_offset,
 };
 
 use crate::Opts;
@@ -33,6 +35,12 @@ use crate::setup::{self, ACTION_HAPTIC, ACTION_POINTER, ACTION_SELECT, ACTION_SE
 
 /// Longest wait for the compositor's next frame (and the pace when there is none).
 const POLL_MS: u32 = 20;
+/// Shortest loop. A frame wait that returns at once must never turn the loop into thousands of SteamVR calls a
+/// second: that starves the game and the compositor until the headset freezes (as WristXR's GPU wait once did).
+/// Well under any headset's frame time, so it never slows a healthy loop.
+const MIN_LOOP: Duration = Duration::from_millis(2);
+/// Once SteamVR's server is found gone, the loop gets this long to save and leave before the process is ended.
+const SERVER_GONE_GRACE: Duration = Duration::from_secs(5);
 const WATCH_MIN_FRAME: Duration = Duration::from_millis(100);
 /// How long the watch shows the lime GOAL face.
 const CELEBRATE: Duration = Duration::from_secs(4);
@@ -115,6 +123,34 @@ fn tip(vr: &Vr, input: Option<&Input>, h: Hand, raw: Option<&Mat>) -> Option<Mat
         .or_else(|| raw.copied())
 }
 
+/// SteamVR normally says goodbye with a quit event. When its server dies instead (a crash, a kill) nothing does,
+/// and the overlay would stay behind holding the strap and the database while the next SteamVR starts a second
+/// one. The flag turns true once the server process has ended; if the loop then cannot leave by itself (a SteamVR
+/// call that never returns), the process is ended anyway, which also gives back a trigger it held.
+fn watch_server() -> Arc<AtomicBool> {
+    let gone = Arc::new(AtomicBool::new(false));
+    let Some(server) = Server::find() else {
+        tracing::warn!("SteamVR's server process not found; only its quit event ends the overlay");
+        return gone;
+    };
+    let flag = gone.clone();
+    let watch = std::thread::Builder::new()
+        .name("steamvr-watch".into())
+        .spawn(move || {
+            while server.alive() {
+                std::thread::sleep(Duration::from_secs(1));
+            }
+            flag.store(true, Ordering::Relaxed);
+            std::thread::sleep(SERVER_GONE_GRACE);
+            tracing::warn!("SteamVR is gone and the overlay did not leave in time; ending it");
+            sweatxr_vr::terminate();
+        });
+    if let Err(e) = watch {
+        tracing::warn!("SteamVR watch: {e}");
+    }
+    gone
+}
+
 pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     // SteamVR starts the overlay with itself. Started any other way while SteamVR is off (Windows
     // restoring apps at sign-in, a stale shortcut), it must not start SteamVR or wait in the
@@ -127,6 +163,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     }
     let vr = Vr::init(AppKind::Overlay)?;
     tracing::info!("overlay {} started", env!("CARGO_PKG_VERSION"));
+    let server_gone = watch_server();
     let mut app = App::open(dirs, |p| {
         if opts.fake_hr {
             Hr::Fake(FakeHr::workout())
@@ -221,6 +258,10 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 EVENT_SCENE_CHANGED => scene_dirty = true,
                 _ => {}
             }
+        }
+        if server_gone.load(Ordering::Relaxed) {
+            tracing::info!("SteamVR's server is gone; leaving");
+            break 'main;
         }
         let hand = app.profile.watch_hand;
         // Beam and dot in the theme's accent, redrawn when the theme changes.
@@ -483,6 +524,9 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             break;
         }
         vr.wait_frame(POLL_MS);
+        if let Some(rest) = MIN_LOOP.checked_sub(loop_start.elapsed()) {
+            std::thread::sleep(rest);
+        }
     }
 
     if let Err(e) = app.store.apply(&tracker.finish()) {

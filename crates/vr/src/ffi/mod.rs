@@ -214,6 +214,91 @@ mod os {
         // SAFETY: `lib` is a live module handle and `name` is NUL-terminated.
         unsafe { GetProcAddress(lib, name.as_ptr()) }
     }
+
+    /// `PROCESSENTRY32W`.
+    #[repr(C)]
+    struct ProcessEntry {
+        size: u32,
+        usage: u32,
+        pid: u32,
+        heap: usize,
+        module: u32,
+        threads: u32,
+        parent: u32,
+        priority: i32,
+        flags: u32,
+        exe: [u16; 260],
+    }
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn CreateToolhelp32Snapshot(flags: u32, pid: u32) -> *mut c_void;
+        fn Process32FirstW(snapshot: *mut c_void, entry: *mut ProcessEntry) -> i32;
+        fn Process32NextW(snapshot: *mut c_void, entry: *mut ProcessEntry) -> i32;
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut c_void;
+        fn WaitForSingleObject(handle: *mut c_void, ms: u32) -> u32;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+        fn GetCurrentProcess() -> *mut c_void;
+        fn TerminateProcess(process: *mut c_void, code: u32) -> i32;
+    }
+
+    const SNAP_PROCESS: u32 = 2;
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    const WAIT_TIMEOUT: u32 = 258;
+    pub const SERVER: &str = "vrserver.exe";
+
+    /// A running process, held open so its end can be seen.
+    pub struct Process(*mut c_void);
+
+    // SAFETY: a process handle may be waited on from any thread.
+    unsafe impl Send for Process {}
+
+    impl Process {
+        /// The first running process with this executable name (case-insensitive).
+        pub fn find(exe: &str) -> Option<Self> {
+            // SAFETY: a snapshot walk with an entry of the size it states; the snapshot is closed on every path
+            // and the process handle is owned by the returned value.
+            unsafe {
+                let snap = CreateToolhelp32Snapshot(SNAP_PROCESS, 0);
+                if snap.is_null() || snap as isize == -1 {
+                    return None;
+                }
+                let mut e: ProcessEntry = std::mem::zeroed();
+                e.size = size_of::<ProcessEntry>() as u32;
+                let mut pid = None;
+                let mut more = Process32FirstW(snap, &mut e) != 0;
+                while more {
+                    let n = e.exe.iter().position(|c| *c == 0).unwrap_or(e.exe.len());
+                    if String::from_utf16_lossy(&e.exe[..n]).eq_ignore_ascii_case(exe) {
+                        pid = Some(e.pid);
+                        break;
+                    }
+                    more = Process32NextW(snap, &mut e) != 0;
+                }
+                CloseHandle(snap);
+                let handle = OpenProcess(SYNCHRONIZE, 0, pid?);
+                (!handle.is_null()).then_some(Self(handle))
+            }
+        }
+
+        pub fn alive(&self) -> bool {
+            // SAFETY: a zero-timeout wait on a handle we own.
+            unsafe { WaitForSingleObject(self.0, 0) == WAIT_TIMEOUT }
+        }
+    }
+
+    impl Drop for Process {
+        fn drop(&mut self) {
+            // SAFETY: the handle came from OpenProcess and is closed once.
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+
+    pub fn terminate() -> ! {
+        // SAFETY: ends our own process; nothing runs after it.
+        unsafe { TerminateProcess(GetCurrentProcess(), 0) };
+        std::process::exit(0)
+    }
 }
 
 #[cfg(unix)]
@@ -245,6 +330,59 @@ mod os {
         // SAFETY: `lib` is a live handle from dlopen and `name` is NUL-terminated.
         unsafe { dlsym(lib, name.as_ptr()) }
     }
+
+    unsafe extern "C" {
+        fn _exit(code: c_int) -> !;
+    }
+
+    pub const SERVER: &str = "vrserver";
+
+    /// A running process, by its `/proc` entry (Linux; nowhere else is one found).
+    pub struct Process(std::path::PathBuf);
+
+    impl Process {
+        /// The first running process with this name (`comm`: the executable's name, cut at 15 characters).
+        pub fn find(exe: &str) -> Option<Self> {
+            std::fs::read_dir("/proc")
+                .ok()?
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().parse::<u32>().is_ok())
+                })
+                .find(|p| std::fs::read_to_string(p.join("comm")).is_ok_and(|c| c.trim_end() == exe))
+                .map(Self)
+        }
+
+        pub fn alive(&self) -> bool {
+            self.0.exists()
+        }
+    }
+
+    pub fn terminate() -> ! {
+        // SAFETY: ends our own process without running exit handlers; nothing runs after it.
+        unsafe { _exit(0) }
+    }
+}
+
+/// SteamVR's server process, to see it end when it could not say so (a crash, a kill): no quit event comes then.
+pub struct Server(os::Process);
+
+impl Server {
+    pub fn find() -> Option<Self> {
+        os::Process::find(os::SERVER).map(Self)
+    }
+
+    pub fn alive(&self) -> bool {
+        self.0.alive()
+    }
+}
+
+/// Ends this process at once, skipping teardown: for when SteamVR is gone and one of its calls never returns.
+/// Everything worth keeping must already be saved.
+pub fn terminate() -> ! {
+    os::terminate()
 }
 
 /// SteamVR install dir from `openvrpaths.vrpath`, which SteamVR rewrites on every start.
@@ -772,4 +910,24 @@ pub enum Handle {
     ActionSet,
     Action,
     Source,
+}
+
+#[cfg(all(test, any(windows, target_os = "linux")))]
+mod tests {
+    use super::os::Process;
+
+    #[test]
+    fn finds_a_running_process_by_name_and_sees_it_alive() {
+        let me = if cfg!(windows) {
+            let exe = std::env::current_exe().expect("exe");
+            exe.file_name().expect("name").to_string_lossy().into_owned()
+        } else {
+            std::fs::read_to_string("/proc/self/comm")
+                .expect("comm")
+                .trim_end()
+                .to_owned()
+        };
+        assert!(Process::find(&me).is_some_and(|p| p.alive()), "{me}");
+        assert!(Process::find("sweatxr-no-such-process").is_none());
+    }
 }

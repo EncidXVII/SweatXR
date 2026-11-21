@@ -172,6 +172,9 @@ impl Store {
             return Ok(());
         }
         let tx = self.conn.transaction()?;
+        // Kept only once the transaction is in: after a failed save (a busy database) the open session must not
+        // point at a row that was rolled back.
+        let mut open = self.open_session;
         for ev in events {
             match ev {
                 Event::Start { ts, app_key } => {
@@ -179,22 +182,14 @@ impl Store {
                         "INSERT INTO sessions (app_key, start, end) VALUES (?1, ?2, ?2)",
                         params![app_key, ts],
                     )?;
-                    self.open_session = Some(tx.last_insert_rowid());
+                    open = Some(tx.last_insert_rowid());
                 }
                 Event::Sample(s) => {
                     tx.execute(
                         "INSERT OR REPLACE INTO samples VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                        params![
-                            s.ts,
-                            self.open_session,
-                            s.app_key,
-                            s.intensity,
-                            s.met,
-                            s.hr,
-                            s.kcal
-                        ],
+                        params![s.ts, open, s.app_key, s.intensity, s.met, s.hr, s.kcal],
                     )?;
-                    if let Some(id) = self.open_session {
+                    if let Some(id) = open {
                         tx.execute(
                             "UPDATE sessions SET end = ?2, kcal = kcal + ?3,
                                 hr_sum = hr_sum + COALESCE(?4, 0), hr_count = hr_count + (?4 IS NOT NULL),
@@ -214,17 +209,19 @@ impl Store {
                          ON CONFLICT (day, app_key) DO UPDATE SET active_min = active_min + 1",
                         params![day_of(*ts, (self.tz)(*ts)), app_key],
                     )?;
-                    if let Some(id) = self.open_session {
+                    if let Some(id) = open {
                         tx.execute(
                             "UPDATE sessions SET active_min = active_min + 1 WHERE id = ?1",
                             [id],
                         )?;
                     }
                 }
-                Event::End { .. } => self.open_session = None,
+                Event::End { .. } => open = None,
             }
         }
-        tx.commit()
+        tx.commit()?;
+        self.open_session = open;
+        Ok(())
     }
 
     /// Per-game totals for days `from..=to`, biggest first.

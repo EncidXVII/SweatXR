@@ -13,6 +13,13 @@ All notable changes to this project are documented here. Format based on
   WristXR.
 
 ### Fixed
+- The overlay can no longer crowd out the game. Its loop never runs faster than 500 times a second, even if
+  SteamVR's frame wait returns at once (a loop that floods SteamVR starves the game until the headset freezes,
+  as a GPU wait in WristXR once did), and it waits at most a second for the GPU instead of for ever.
+- When SteamVR crashes or is killed, the watch leaves with it. It used to stay behind unseen, holding the strap
+  and the database, while the next SteamVR started a second one. If a SteamVR call never returns, the process
+  is ended after 5 s, which also gives back a trigger it was holding. Same as WristXR.
+- A save that failed (a busy database) no longer leaves the session pointing at a row that was never written.
 - Pulling the trigger on the watch or the panel no longer also pulls it in the game: while the pointing hand is
   on them, its trigger is SweatXR's alone. It changes hands only once let go, so a trigger held in the game
   never freezes there. The other hand is never touched. Same as WristXR.
