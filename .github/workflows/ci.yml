@@ -62,7 +62,7 @@ jobs:
           # Runners have no FUSE; extract-and-run avoids it.
           ARCH=$arch ./appimagetool --appimage-extract-and-run AppDir "dist/${{ matrix.artifact }}.AppImage"
           cd dist && sha256sum "${{ matrix.artifact }}.AppImage" > "${{ matrix.artifact }}.AppImage.sha256"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}.*
