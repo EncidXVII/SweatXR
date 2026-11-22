@@ -67,7 +67,7 @@ jobs:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}.*
 
-  # Pushing a tag like v1.0.0 builds every target, then opens a draft release with the archives,
+  # Pushing a tag like v0.7.0 builds every target, then opens a draft release with the archives,
   # their SHA-256 files and the matching CHANGELOG section. Publish the draft by hand.
   release:
     if: startsWith(github.ref, 'refs/tags/v')

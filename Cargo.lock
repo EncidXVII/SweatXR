@@ -4628,7 +4628,7 @@ dependencies = [
 
 [[package]]
 name = "sweatxr"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "directories",
  "serde_json",
@@ -4644,7 +4644,7 @@ dependencies = [
 
 [[package]]
 name = "sweatxr-core"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "quick-xml 0.42.0",
  "rusqlite",
@@ -4652,7 +4652,7 @@ dependencies = [
 
 [[package]]
 name = "sweatxr-hr"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "btleplug",
  "futures",
@@ -4662,7 +4662,7 @@ dependencies = [
 
 [[package]]
 name = "sweatxr-ui"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "insta",
  "png",
@@ -4675,7 +4675,7 @@ dependencies = [
 
 [[package]]
 name = "sweatxr-vr"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "ash",
  "serde_json",
