@@ -4,7 +4,7 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-23
 
 ### Added
 - The watch can be moved on its wrist, as on WristXR: point at it with the other controller, hold the grip, slide
@@ -94,9 +94,9 @@ All notable changes to this project are documented here. Format based on
 - Pointing just below a short watch card no longer counts as pointing at the watch.
 - The strap dropping mid-session now says so on the watch; estimates continue from movement.
 
-## [1.0.0]
+## [1.0.0 test builds]
 
-First release.
+The first builds, before the public release.
 
 ### Added
 - SteamVR wrist watch overlay: goal ring with today's calories (estimated) inside, active

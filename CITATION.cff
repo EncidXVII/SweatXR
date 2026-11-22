@@ -6,7 +6,7 @@ abstract: "Free, open-source SteamVR overlay that estimates calories burned, act
 authors:
   - alias: EncidXVII
 version: 1.0.0
-date-released: 2026-11-08
+date-released: 2026-11-23
 license: GPL-3.0-only
 repository-code: "https://github.com/EncidXVII/SweatXR"
 url: "https://everyvr.net/sweatxr"
