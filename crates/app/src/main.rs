@@ -19,6 +19,7 @@ mod setup;
 #[cfg(windows)]
 mod tray;
 mod uninstall;
+mod wristxr;
 
 use std::error::Error;
 use std::path::PathBuf;

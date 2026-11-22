@@ -31,6 +31,7 @@ pub enum UiCmd {
     ExportCsv,
     DeleteHistory,
     OpenDataFolder,
+    OpenUrl(String),
     ClosePanel,
 }
 
@@ -69,6 +70,8 @@ pub fn wire(s: &AppState, q: &Queue) {
     s.on_open_data_folder(move || p(UiCmd::OpenDataFolder));
     let p = push(q);
     s.on_close_panel(move || p(UiCmd::ClosePanel));
+    let p = push(q);
+    s.on_open_url(move |url| p(UiCmd::OpenUrl(url.into())));
 }
 
 pub enum Hr {
@@ -210,6 +213,7 @@ impl App {
                     open_folder(dir);
                 }
             }
+            UiCmd::OpenUrl(url) => open_url(&url),
             UiCmd::ClosePanel => return true,
         }
         false
@@ -273,6 +277,15 @@ impl App {
         }
     }
 
+    /// The overlay calls this when the player lets go of the watch after moving it on the wrist (None: it was put
+    /// back on its default spot).
+    pub fn set_watch_pose(&mut self, pose: Option<(sweatxr_core::profile::Hand, [f32; 12])>) {
+        self.save(Profile {
+            watch_pose: pose,
+            ..self.fresh()
+        });
+    }
+
     /// Refit the motion model from recent HR-backed seconds; called when a session ends.
     pub fn recalibrate(&mut self) {
         match self.store.calibration_points(4 * 3600) {
@@ -326,6 +339,14 @@ fn open_folder(dir: &std::path::Path) {
     };
     if let Err(e) = std::process::Command::new(program).arg(dir).spawn() {
         tracing::warn!("open {}: {e}", dir.display());
+    }
+}
+
+/// Opens a web page in the system browser. Only https links, so nothing else can be started.
+fn open_url(url: &str) {
+    if url.starts_with("https://") {
+        // The file manager's opener hands a URL to the browser.
+        open_folder(std::path::Path::new(url));
     }
 }
 

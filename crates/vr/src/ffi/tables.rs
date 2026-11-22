@@ -53,7 +53,7 @@ pub const IVROVERLAY: &str = "FnTable:IVROverlay_028\0";
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct IVROverlayFn {
-    pub FindOverlay: Slot,
+    pub FindOverlay: unsafe extern "C" fn(key: *const c_char, handle: *mut u64) -> u32,
     pub CreateOverlay: unsafe extern "C" fn(key: *const c_char, name: *const c_char, handle: *mut u64) -> u32,
     pub CreateSubviewOverlay: Slot,
     pub DestroyOverlay: unsafe extern "C" fn(handle: u64) -> u32,
@@ -252,7 +252,13 @@ pub struct IVRInputFn {
         size: u32,
         restrict: u64,
     ) -> u32,
-    pub GetPoseActionDataForNextFrame: Slot,
+    pub GetPoseActionDataForNextFrame: unsafe extern "C" fn(
+        action: u64,
+        origin: u32,
+        data: *mut PoseActionData,
+        size: u32,
+        restrict: u64,
+    ) -> u32,
     pub GetSkeletalActionData: Slot,
     pub GetDominantHand: Slot,
     pub SetDominantHand: Slot,

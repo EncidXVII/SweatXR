@@ -25,12 +25,12 @@ It keeps history per day and per game, and your data never leaves your computer.
 
 **[Download for Windows](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-windows-x64.zip)**
 · **[Linux x64 AppImage](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-x64.AppImage)**
-· **[Linux arm64 / Steam Frame](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-arm64.AppImage)**
+· **[Linux arm64 / Steam Frame (experimental)](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-arm64.AppImage)**
 · [All downloads](https://github.com/EncidXVII/SweatXR/releases/latest)
 
-> **Status: first release, looking for testers.** Calorie numbers are estimates and this is not
-> a medical device. Comparisons against your fitness watch are what it needs most, then reports
-> from Linux and Steam Frame: see [Status and help wanted](#status-and-help-wanted).
+> **Status: first release (1.0).** Calorie numbers are estimates and this is not a medical device.
+> The Linux and Steam Frame builds are experimental. Comparisons against your fitness watch help
+> most: see [Status and help wanted](#status-and-help-wanted).
 
 ## At a glance
 
@@ -38,12 +38,12 @@ It keeps history per day and per game, and your data never leaves your computer.
 |---|---|
 | **What it is** | A SteamVR overlay that counts calories burned, active minutes and heart rate zones in any VR game, on a wrist watch you glance at while you play |
 | **Use it for** | Tracking VR workouts in rhythm, boxing, dance and sports games, daily calorie goals and streaks, calories per game, exporting workouts as TCX or CSV |
-| **Platforms** | Windows, Linux (x64 AppImage), Steam Frame (arm64) |
-| **Headsets** | Anything on SteamVR: Valve Index, Steam Frame, HTC Vive, Pimax, Bigscreen Beyond, Windows Mixed Reality, Meta Quest through Steam Link, Virtual Desktop or a Link cable |
+| **Platforms** | Windows; Linux (x64 AppImage) and Steam Frame (arm64), both experimental |
+| **Headsets** | Anything on SteamVR: Valve Index, Steam Frame (experimental), HTC Vive, Pimax, Bigscreen Beyond, Windows Mixed Reality, Meta Quest through Steam Link, Virtual Desktop or a Link cable |
 | **Heart rate** | Optional: any Bluetooth LE chest strap or armband with the standard heart rate service; without one it estimates from head and hand movement |
 | **Privacy** | Everything stays in one file on your computer. No account, no cloud, no network access |
 | **Price** | Free. No subscription |
-| **Status** | First release (1.0): calorie numbers are estimates that need comparisons against fitness watches; Linux and Steam Frame builds need testers |
+| **Status** | First release (1.0): calorie numbers are estimates; the Linux and Steam Frame builds are experimental |
 | **License** | Open source, `GPL-3.0-only`, © 2026 EncidXVII |
 
 ## Features
@@ -54,7 +54,7 @@ It keeps history per day and per game, and your data never leaves your computer.
   goal ring. It dims when you look away, brightens on a glance and hides near your face.
 - **Heart rate monitor support.** Pairs any Bluetooth LE chest strap or armband that uses the
   standard heart rate service, for better calorie estimates.
-- **Accurate without a strap too.** It estimates effort from head and hand movement, then
+- **Works without a strap too.** It estimates effort from head and hand movement, then
   calibrates that estimate to your own body after 20 minutes with a strap.
 - **Calories per game.** See which VR game burns the most, with daily goals, streaks and a
   week and 30-day history.
@@ -65,7 +65,7 @@ It keeps history per day and per game, and your data never leaves your computer.
 
 ## Supported headsets
 
-Anything that runs SteamVR: Valve Index, Steam Frame (natively on the headset, arm64), HTC Vive,
+Anything that runs SteamVR: Valve Index, Steam Frame (experimental, natively on the headset, arm64), HTC Vive,
 Pimax, Bigscreen Beyond, Windows Mixed Reality, and Meta Quest through Steam Link, Virtual
 Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are not tracked.
 
@@ -74,7 +74,7 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
 1. Download the archive for your system from the
    [latest release](https://github.com/EncidXVII/SweatXR/releases/latest) and check it
    against its `.sha256` file.
-2. Windows: unpack the zip anywhere and keep the folder. Linux or Steam Frame (Developer Mode):
+2. Windows: unpack the zip anywhere and keep the folder. Linux or Steam Frame (experimental; Developer Mode on Steam Frame):
    either make the `.AppImage` executable and keep it where it is, or unpack the `.tar.gz` and
    run `./install.sh`.
 3. Run `sweatxr` once. It registers itself with SteamVR; if SteamVR is running, the watch appears
@@ -95,6 +95,9 @@ Then delete the folder.
 - **Panel:** point at the watch with the other controller (a laser shows where you aim) and
   pull the trigger. Today, Week and Settings. Rebind the button in SteamVR's controller bindings
   under SweatXR.
+- **Move the watch:** point at it with the other controller and hold the grip: it follows that hand along the
+  wrist and tilts as the hand turns. Let go and it stays there; let go on its usual spot and it is back on it.
+  The panel moves the same way: grip it and carry it; it keeps facing you and stays where you let go.
 - **Desktop:** `sweatxr` opens Today, History (step back through past weeks and months), Sessions
   (each session with its own export) and Settings. On Windows it sits in the tray.
 - **Heart rate:** Settings > Device > Scan, then pick your strap. Choosing it on the desktop
@@ -114,8 +117,8 @@ Logs (`overlay.log`, `desktop.log`) sit next to it and contain game names, nothi
 All numbers are estimates.
 
 - **With a heart rate strap:** the Keytel et al. (2005) equation from heart rate, weight, age
-  and sex. Aim: within about 20% of a dedicated fitness watch.
-- **Without one:** head and hand speed mapped to METs. Aim: within about 35%. After 20 minutes
+  and sex. Target: within about 20% of a dedicated fitness watch.
+- **Without one:** head and hand speed mapped to METs. Target: within about 35%. After 20 minutes
   of play with a strap, the app fits motion to your own heart-rate data and uses that fit when
   the strap is off.
 - **What counts:** only time in play. Standing in menus does not count, and the idle minutes
@@ -127,10 +130,10 @@ SweatXR is a first release (1.0). Where each part stands, and what moves it forw
 
 | Area | Where it stands | What helps |
 |---|---|---|
-| **Calorie accuracy** | The numbers are estimates. The aim is within about 20% of a fitness watch with a heart rate strap and about 35% without one; it takes sessions from more people and more kinds of games to confirm and tune that | An [accuracy report](https://github.com/EncidXVII/SweatXR/issues/new/choose): 10 minutes of play with a strap and a fitness watch running, then both numbers. Rhythm, boxing and slow games all help |
-| **Linux and Steam Frame (arm64)** | Built and packaged for both. Reports from real machines are still missing | Install it, play a session and say what worked: the watch, the panel, Bluetooth heart rate, start with SteamVR |
-| **Controllers** | The watch sits on the back of the wrist, and that spot has to suit every controller shape | Tell us how it sits on yours: Index, Touch, Steam Frame, Vive |
-| **Heart rate straps** | Any strap, armband or watch with the standard Bluetooth LE heart rate service should pair | Name the strap you paired, working or not |
+| **Calorie accuracy** | The numbers are estimates. The target is within about 20% of a fitness watch with a heart rate strap and about 35% without one | An [accuracy report](https://github.com/EncidXVII/SweatXR/issues/new/choose): 10 minutes of play with a strap and a fitness watch running, then both numbers. Rhythm, boxing and slow games all help |
+| **Linux and Steam Frame (arm64)** | Experimental, requires more testing | Install it, play a session and say what worked: the watch, the panel, Bluetooth heart rate, start with SteamVR |
+| **Controllers** | The watch sits on the back of the wrist | Tell us how it sits on yours: Index, Touch, Steam Frame, Vive |
+| **Heart rate straps** | Any strap, armband or watch with the standard Bluetooth LE heart rate service pairs | Name the strap you paired, working or not |
 | **Not a medical device** | A fitness estimate for play, not a measurement | Nothing: it stays that way |
 
 How to send any of these: [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -147,7 +150,7 @@ Yes, when the Quest plays SteamVR games from a PC through Steam Link, Virtual De
 cable. Games running standalone on the Quest are outside SteamVR and are not tracked.
 
 ### Does it work on Steam Frame?
-Yes. The Linux arm64 build runs natively on the headset (Developer Mode), and the Windows or
+Yes, as an experimental build. The Linux arm64 build runs natively on the headset (Developer Mode), and the Windows or
 Linux build works when you stream from a PC.
 
 ### Do I need a heart rate monitor?

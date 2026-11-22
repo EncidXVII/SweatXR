@@ -50,6 +50,10 @@ pub struct Profile {
     pub panel_seen: bool,
     /// Accent colour, an index into design-tokens.json "themes" (0 = Lime).
     pub theme: u8,
+    /// Where the player put the watch on its wrist (gripped and moved, as on WristXR): the hand it was placed on and
+    /// its pose relative to that controller's tip, the rows of a 3x4 matrix. None: the default spot. It holds for
+    /// that hand only, so a watch moved to the other wrist starts from the default spot there.
+    pub watch_pose: Option<(Hand, [f32; 12])>,
 }
 
 impl Default for Profile {
@@ -69,6 +73,7 @@ impl Default for Profile {
             onboarded: false,
             panel_seen: false,
             theme: 0,
+            watch_pose: None,
         }
     }
 }

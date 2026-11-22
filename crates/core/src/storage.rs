@@ -38,7 +38,35 @@ const MIGRATIONS: &[&str] = &[
      CREATE INDEX sessions_start ON sessions (start);",
     "ALTER TABLE profile ADD COLUMN panel_seen INTEGER NOT NULL DEFAULT 0;",
     "ALTER TABLE profile ADD COLUMN theme INTEGER NOT NULL DEFAULT 0;",
+    // The watch as the player placed it: "L" or "R" and the 12 numbers of its pose, space separated.
+    "ALTER TABLE profile ADD COLUMN watch_pose TEXT;",
 ];
+
+fn watch_pose_text(pose: Option<(Hand, [f32; 12])>) -> Option<String> {
+    let (hand, m) = pose?;
+    let numbers: Vec<String> = m.iter().map(f32::to_string).collect();
+    Some(format!(
+        "{} {}",
+        if hand == Hand::Right { "R" } else { "L" },
+        numbers.join(" ")
+    ))
+}
+
+/// None for anything but a hand and 12 finite numbers: a damaged value puts the watch back on its default spot.
+fn watch_pose_from(text: &str) -> Option<(Hand, [f32; 12])> {
+    let mut parts = text.split_whitespace();
+    let hand = match parts.next()? {
+        "L" => Hand::Left,
+        "R" => Hand::Right,
+        _ => return None,
+    };
+    let numbers: Vec<f32> = parts
+        .map(str::parse)
+        .collect::<std::result::Result<_, _>>()
+        .ok()?;
+    let m: [f32; 12] = numbers.try_into().ok()?;
+    m.iter().all(|v| v.is_finite()).then_some((hand, m))
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GameTotal {
@@ -111,7 +139,7 @@ impl Store {
     pub fn profile(&self) -> Result<Profile> {
         let row = self
             .conn
-            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded, panel_seen, theme FROM profile WHERE id = 1", [], |r| {
+            .query_row("SELECT weight_kg, height_cm, age, sex, goal_kcal, resting_hr, hand, units, auto_start, hr_device, cal_slope, cal_intercept, onboarded, panel_seen, theme, watch_pose FROM profile WHERE id = 1", [], |r| {
                 let cal = match (r.get::<_, Option<f32>>(10)?, r.get::<_, Option<f32>>(11)?) {
                     (Some(slope), Some(intercept)) => Some(Calibration { slope, intercept }),
                     _ => None,
@@ -131,6 +159,7 @@ impl Store {
                     onboarded: r.get(12)?,
                     panel_seen: r.get(13)?,
                     theme: r.get(14)?,
+                    watch_pose: r.get::<_, Option<String>>(15)?.as_deref().and_then(watch_pose_from),
                 })
             })
             .optional()?;
@@ -139,7 +168,7 @@ impl Store {
 
     pub fn save_profile(&self, p: &Profile) -> Result<()> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT OR REPLACE INTO profile VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 p.weight_kg,
                 p.height_cm,
@@ -156,6 +185,7 @@ impl Store {
                 p.onboarded,
                 p.panel_seen,
                 p.theme,
+                watch_pose_text(p.watch_pose),
             ],
         )?;
         Ok(())
@@ -463,10 +493,25 @@ mod tests {
             }),
             onboarded: true,
             theme: 3,
+            watch_pose: Some((
+                Hand::Right,
+                [
+                    1.0, 0.0, 0.0, -0.04, 0.0, 0.5, -0.25, 0.0125, 0.0, 0.25, 0.5, 0.16,
+                ],
+            )),
             ..Profile::default()
         };
         store.save_profile(&p).expect("save");
         assert_eq!(store.profile().expect("load"), p);
+        // A damaged value is the default spot, never a watch somewhere in the room.
+        for bad in [
+            "",
+            "L 1 2 3",
+            "X 0 0 0 0 0 0 0 0 0 0 0 0",
+            "L 0 0 0 0 0 0 0 0 0 0 0 NaN",
+        ] {
+            assert_eq!(watch_pose_from(bad), None, "{bad:?}");
+        }
     }
 
     #[test]

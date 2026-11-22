@@ -7,6 +7,21 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
+- The watch can be moved on its wrist, as on WristXR: point at it with the other controller, hold the grip, slide
+  it along the forearm or turn the hand to tilt it, and let go. It stays there (kept per hand); let go on its
+  default spot, it is back on it.
+- With WristXR running and its watch on the same wrist, the watch starts beside WristXR's instead of on top of it:
+  turned the same way, top edges level, a centimetre apart, up the arm. It reads where WristXR saved its watch, so
+  it follows within two seconds when that one is moved. A watch placed by hand stays where it was put.
+- The panel can be gripped and carried, as a panel on WristXR: the gripped spot stays under the beam, the panel
+  turns to face you, level, and stays where the grip lets go.
+- The pointer works the way WristXR's does: one ray, the pointing hand's tip as it will be when the next frame
+  shows, smoothed for a steady hand, and SweatXR's own arithmetic for where it meets the watch and the panel. The
+  beam, the dot and the control under them come from that one answer. Before, the beam rode the controller (where
+  the hand is now), the dot came from an unpredicted pose and SteamVR's own intersection, and the two parted
+  whenever the hand moved.
+- Default bindings for Windows Mixed Reality and Steam Frame controllers, the two WristXR has and SweatXR lacked:
+  without them the watch and beam went by the controller's raw pose, in another place and at another angle.
 - Uninstall: `Uninstall SweatXR.cmd` in the Windows folder, `uninstall.sh` in the Linux archive, or
   `sweatxr --uninstall`. It takes SweatXR off SteamVR's list, so it no longer starts with SteamVR, and deletes
   its settings and workout history; exports in Documents/SweatXR stay. It never starts SteamVR. Same as

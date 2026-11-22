@@ -734,6 +734,16 @@ impl Vr {
         Ok(handle)
     }
 
+    /// Whether an overlay with this key exists right now, whichever app made it (WristXR's watch).
+    pub fn overlay_exists(&self, key: &str) -> bool {
+        let Ok(k) = cstr("FindOverlay", key) else {
+            return false;
+        };
+        let mut handle = 0u64;
+        // SAFETY: valid C string and out pointer; an unknown key only returns an error code.
+        unsafe { (self.overlay.FindOverlay)(k.as_ptr(), &mut handle) == 0 }
+    }
+
     pub fn destroy_overlay(&self, h: u64) {
         // SAFETY: plain value call; an unknown handle only returns an error code.
         let _ = unsafe { (self.overlay.DestroyOverlay)(h) };
@@ -889,6 +899,23 @@ impl Vr {
                 action,
                 STANDING,
                 0.0,
+                &mut d,
+                size_of::<PoseActionData>() as u32,
+                source,
+            )
+        };
+        (code == 0 && d.active && d.pose.pose_is_valid).then_some(d.pose.device_to_absolute)
+    }
+
+    /// Pose action on one hand (standing space) as it will be when the next frame shows: what the pointer goes by,
+    /// as on WristXR, so what it draws this frame is where the hand is when the frame is seen.
+    pub fn pose_next(&self, action: u64, source: u64) -> Option<HmdMatrix34> {
+        let mut d = PoseActionData::default();
+        // SAFETY: struct of the advertised size.
+        let code = unsafe {
+            (self.input.GetPoseActionDataForNextFrame)(
+                action,
+                STANDING,
                 &mut d,
                 size_of::<PoseActionData>() as u32,
                 source,

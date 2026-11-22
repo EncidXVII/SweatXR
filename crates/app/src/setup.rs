@@ -16,7 +16,18 @@ pub const ACTION_HAPTIC: &str = "/actions/main/out/haptic";
 /// watch sits and turns the same way on Index, Touch and Vive wands. The raw device pose differs per model.
 pub const ACTION_POINTER: &str = "/actions/main/in/pointer";
 /// Default bindings: trigger click selects, both hands. Players rebind in SteamVR's binding UI.
-const CONTROLLERS: [&str; 4] = ["knuckles", "oculus_touch", "vive_controller", "generic"];
+/// Grip on the pointing hand, held while its beam is on the watch: the watch moves with that hand (as on WristXR).
+pub const ACTION_GRAB: &str = "/actions/main/in/grab";
+/// The controllers WristXR has bindings for, and a generic one. A controller without a binding file gets no tip
+/// pose, and the watch and beam then go by its raw pose: some other place and angle on every model.
+const CONTROLLERS: [&str; 6] = [
+    "knuckles",
+    "oculus_touch",
+    "vive_controller",
+    "holographic_controller",
+    "frame_controller",
+    "generic",
+];
 
 pub struct Dirs {
     pub data: PathBuf,
@@ -96,10 +107,14 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
     std::fs::create_dir_all(&dir)?;
     let hands = ["left", "right"];
     for c in CONTROLLERS {
-        let sources: Vec<_> = hands
+        let mut sources: Vec<_> = hands
             .iter()
             .map(|h| serde_json::json!({ "path": format!("/user/hand/{h}/input/trigger"), "mode": "button", "inputs": { "click": { "output": ACTION_SELECT } } }))
             .collect();
+        // Every named controller has a grip; the generic one is not known to.
+        if c != "generic" {
+            sources.extend(hands.iter().map(|h| serde_json::json!({ "path": format!("/user/hand/{h}/input/grip"), "mode": "button", "inputs": { "click": { "output": ACTION_GRAB } } })));
+        }
         let haptics: Vec<_> =
             hands.iter().map(|h| serde_json::json!({ "output": ACTION_HAPTIC, "path": format!("/user/hand/{h}/output/haptic") })).collect();
         let poses: Vec<_> =
@@ -107,7 +122,7 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
         write_json(
             &dir.join(format!("bindings_{c}.json")),
             &serde_json::json!({
-                "controller_type": c, "name": "SweatXR defaults", "description": "Trigger selects on the watch and panel.",
+                "controller_type": c, "name": "SweatXR defaults", "description": "Trigger selects on the watch and panel; grip moves the watch.",
                 "bindings": { ACTION_SET: { "sources": sources, "haptics": haptics, "poses": poses } }
             }),
         )?;
@@ -118,12 +133,13 @@ pub fn write_action_manifest(dirs: &Dirs) -> std::io::Result<PathBuf> {
         &serde_json::json!({
             "actions": [
                 { "name": ACTION_SELECT, "type": "boolean" },
+                { "name": ACTION_GRAB, "type": "boolean" },
                 { "name": ACTION_POINTER, "type": "pose" },
                 { "name": ACTION_HAPTIC, "type": "vibration" }
             ],
             "action_sets": [{ "name": ACTION_SET, "usage": "leftright" }],
             "default_bindings": CONTROLLERS.iter().map(|c| serde_json::json!({ "controller_type": c, "binding_url": format!("bindings_{c}.json") })).collect::<Vec<_>>(),
-            "localization": [{ "language_tag": "en_US", ACTION_SET: "SweatXR", ACTION_SELECT: "Select on watch and panel", ACTION_POINTER: "Pointer", ACTION_HAPTIC: "Haptic tick" }]
+            "localization": [{ "language_tag": "en_US", ACTION_SET: "SweatXR", ACTION_SELECT: "Select on watch and panel", ACTION_GRAB: "Move the watch", ACTION_POINTER: "Pointer", ACTION_HAPTIC: "Haptic tick" }]
         }),
     )?;
     Ok(path)

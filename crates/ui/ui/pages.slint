@@ -1046,6 +1046,53 @@ component SettingsBody inherits VerticalLayout {
     }
 }
 
+// A row that opens a web page in the system browser.
+component LinkRow inherits Row {
+    in property <string> url;
+    clickable: true;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        AppState.open-url(root.url);
+    }
+    clicked => {
+        AppState.open-url(root.url);
+    }
+    VerticalLayout {
+        alignment: center;
+        Icon {
+            d: Icons.external;
+            color: root.hovered ? Tokens.ink : Tokens.ink2;
+        }
+    }
+}
+
+// A word that opens a web page, for several links on one row.
+component Link inherits Rectangle {
+    in property <string> text;
+    in property <string> url;
+    min-width: label.preferred-width;
+    min-height: label.preferred-height;
+    horizontal-stretch: 0;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => {
+        AppState.open-url(root.url);
+    }
+    label := Text {
+        text: root.text;
+        color: hit.has-hover ? Tokens.ink : Tokens.ink2;
+        font-size: Tokens.type-body;
+        font-family: Tokens.font-body;
+        vertical-alignment: center;
+    }
+    hit := Hit {
+        clicked => {
+            AppState.open-url(root.url);
+        }
+    }
+}
+
 // Strap, auto-start and data.
 component SettingsDevice inherits VerticalLayout {
     spacing: Tokens.space-2;
@@ -1121,6 +1168,53 @@ component SettingsDevice inherits VerticalLayout {
             if AppState.data-status != "": Caption {
                 text: AppState.data-status;
             }
+        }
+    }
+    SectionHead {
+        text: "About";
+    }
+    Group {
+        Row {
+            label: "SweatXR " + AppState.version;
+            sub: "Calories, active minutes and heart rate in any VR game";
+        }
+        LinkRow {
+            divider: true;
+            label: "Report a problem";
+            sub: "Attach desktop.log and overlay.log from the data folder";
+            url: "https://github.com/EncidXVII/SweatXR/issues/new/choose";
+        }
+        LinkRow {
+            divider: true;
+            label: "Guide";
+            sub: "everyvr.net/sweatxr";
+            url: "https://everyvr.net/sweatxr";
+        }
+        Row {
+            divider: true;
+            label: "Made by EncidXVII";
+            HorizontalLayout {
+                spacing: Tokens.space-4;
+                alignment: end;
+                Link {
+                    text: "GitHub";
+                    url: "https://github.com/EncidXVII";
+                }
+                Link {
+                    text: "Threads";
+                    url: "https://www.threads.com/@encidxvii";
+                }
+                Link {
+                    text: "X";
+                    url: "https://x.com/MykolaOP";
+                }
+            }
+        }
+        LinkRow {
+            divider: true;
+            label: "Licence";
+            sub: "GPL-3.0, free and open source";
+            url: "https://github.com/EncidXVII/SweatXR/blob/main/LICENSE";
         }
     }
 }

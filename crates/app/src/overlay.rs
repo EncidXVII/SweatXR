@@ -24,14 +24,14 @@ use sweatxr_ui::view::progress;
 use sweatxr_ui::{AppState, Feedback, Mode, PanelView, WatchView};
 use sweatxr_vr::{
     AppKind, Apps, DOT_PX, DOT_WIDTH_M, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Glance, Gpu, HMD,
-    Handle, LASER_PX, Mat, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Server, Vr, WATCH_WIDTH_M, compose,
-    distance, dot_pose, dot_texture, inverse, laser, laser_texture, near_face, panel_in_front, position, ray,
-    uv_to_px, valid, watch_offset,
+    Handle, LASER_PX, Mat, Neighbour, PANEL_WIDTH_M, ROLE_LEFT, ROLE_RIGHT, Server, Vr, WATCH_WIDTH_M,
+    at_default, beside, carried, compose, distance, dot_pose, dot_texture, grip, gripped_on_wrist, hit,
+    inverse, laser, laser_texture, near_face, panel_in_front, position, ray, smooth, valid, watch_offset,
 };
 
 use crate::Opts;
 use crate::app::{App, Hr, Queue, wire};
-use crate::setup::{self, ACTION_HAPTIC, ACTION_POINTER, ACTION_SELECT, ACTION_SET, Dirs};
+use crate::setup::{self, ACTION_GRAB, ACTION_HAPTIC, ACTION_POINTER, ACTION_SELECT, ACTION_SET, Dirs};
 
 /// Longest wait for the compositor's next frame (and the pace when there is none).
 const POLL_MS: u32 = 20;
@@ -69,9 +69,27 @@ enum Buzz {
 struct Input {
     set: u64,
     select: u64,
+    grab: u64,
     pointer: u64,
     haptic: u64,
     hands: [u64; 2],
+}
+
+/// The watch's pose on its wrist as the profile keeps it, and back.
+fn rows(m: &Mat) -> [f32; 12] {
+    let mut out = [0.0; 12];
+    for (i, v) in m.m.iter().flatten().enumerate() {
+        out[i] = *v;
+    }
+    out
+}
+
+fn from_rows(r: &[f32; 12]) -> Mat {
+    let mut m = Mat::default();
+    for (i, v) in r.iter().enumerate() {
+        m.m[i / 4][i % 4] = *v;
+    }
+    m
 }
 
 impl Input {
@@ -80,6 +98,7 @@ impl Input {
         Ok(Self {
             set: vr.handle(Handle::ActionSet, ACTION_SET)?,
             select: vr.handle(Handle::Action, ACTION_SELECT)?,
+            grab: vr.handle(Handle::Action, ACTION_GRAB)?,
             pointer: vr.handle(Handle::Action, ACTION_POINTER)?,
             haptic: vr.handle(Handle::Action, ACTION_HAPTIC)?,
             hands: [
@@ -110,6 +129,8 @@ struct Look {
     tip_offset: Option<Mat>,
     /// Hand the watch was attached for (its text runs the other way on the other hand).
     hand: Option<Hand>,
+    /// Its spot on the wrist it was attached with (the default one, or where the player put it).
+    spot: Option<Mat>,
     alpha: f32,
     shown_alpha: f32,
     visible: bool,
@@ -242,11 +263,27 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     // The pointing hand's trigger is the overlay's (not the game's) while it points at the watch or the panel;
     // it changes hands only while let go, so the game never sees a held trigger freeze.
     let mut trigger_taken = false;
+    // The watch gripped by the pointing hand: how that hand's ray held it, where that puts it on the wrist now, and
+    // whether the grip was already down last frame.
+    let (mut held, mut held_spot, mut grip_down): (Option<Mat>, Option<Mat>, bool) = (None, None, false);
+    // The pointing hand's ray: its tip as it will be when the next frame shows, smoothed, as on WristXR. The beam,
+    // the dot and the control under them all come from this one ray.
+    let mut aim: Option<Mat> = None;
+    // The watch pinned in front of the head (tests), and the panel: where it is, and how far along the ray and
+    // where on it the grip holds it.
+    let (mut pinned, mut panel_pose): (Option<Mat>, Option<Mat>) = (None, None);
+    let mut panel_held: Option<(f32, [f32; 2])> = None;
+    let panel_size = (
+        PANEL_WIDTH_M,
+        PANEL_WIDTH_M * PANEL_PX.1 as f32 / PANEL_PX.0 as f32,
+    );
     // Safety net: since when the pointing hand's trigger has not reached us (unbound), for one manifest reload.
     let (mut unbound_since, mut reloaded): (Option<Instant>, bool) = (None, false);
     let (mut loops, mut redraws) = (0u64, 0u64);
     // What SteamVR and the strap were last told, so a change from either window reaches them.
     let mut applied = Applied::from(&app.profile);
+    // WristXR's watch, while WristXR runs with it on our wrist: ours then starts beside it, not on top of it.
+    let mut neighbour: Option<Neighbour> = None;
 
     'main: loop {
         let loop_start = Instant::now();
@@ -264,6 +301,18 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             break 'main;
         }
         let hand = app.profile.watch_hand;
+        // The watch's spot on this wrist: where the grip holds it, else where the player left it, else the default
+        // (beside WristXR's watch when that is on this wrist too).
+        let aspect = WATCH_PX.1 as f32 / WATCH_PX.0 as f32;
+        let default_spot = neighbour
+            .as_ref()
+            .map_or_else(|| watch_offset(hand, aspect), |n| beside(n, aspect));
+        let placed = app
+            .profile
+            .watch_pose
+            .filter(|(h, _)| *h == hand)
+            .map(|(_, m)| from_rows(&m));
+        let spot = held_spot.or(placed).unwrap_or(default_spot);
         // Beam and dot in the theme's accent, redrawn when the theme changes.
         if accent != Some(app.profile.theme) {
             accent = Some(app.profile.theme);
@@ -282,6 +331,25 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         let now = now_unix();
         if now != last_sec {
             last_sec = now;
+            // Every two seconds: WristXR's watch as its settings have it, counted only while its overlay is there
+            // (WristXR runs) and on the wrist ours is on. It follows within two seconds when that watch is moved.
+            if now % 2 == 0 {
+                let theirs = crate::wristxr::load()
+                    .filter(|w| w.hand == hand && vr.overlay_exists(&w.key))
+                    .map(|w| w.neighbour);
+                if theirs.is_some() != neighbour.is_some() {
+                    tracing::info!(
+                        "WristXR's watch is {} this wrist; ours is {}",
+                        if theirs.is_some() { "on" } else { "no longer on" },
+                        if theirs.is_some() {
+                            "beside it unless it was placed by hand"
+                        } else {
+                            "on its own spot"
+                        }
+                    );
+                }
+                neighbour = theirs;
+            }
             if scene_dirty || now % 5 == 0 {
                 scene = vr
                     .apps()
@@ -331,10 +399,12 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         let wrist_tip = tip(&vr, input.as_ref(), hand, wrist_pose);
         match (opts.pin_watch, head) {
             (true, Some(h)) if !look.visible => {
+                let m = panel_in_front(h);
                 look.visible = vr
-                    .place(ov_watch, &panel_in_front(h))
+                    .place(ov_watch, &m)
                     .and_then(|()| vr.set_visible(ov_watch, true))
                     .is_ok();
+                pinned = Some(m);
             }
             (true, _) => {}
             (false, _) => place_watch(
@@ -346,25 +416,26 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                     device: wrist,
                     raw: wrist_pose,
                     tip: wrist_tip.as_ref(),
+                    spot: &spot,
                 },
                 head,
-                // Celebrating or pointed at: full brightness wherever the wrist points.
-                celebrate_until.is_some() || on_watch,
+                // Celebrating, pointed at or held: full brightness wherever the wrist points.
+                celebrate_until.is_some() || on_watch || held.is_some(),
                 if motion { dt } else { f32::INFINITY },
             ),
         }
 
-        let pointer_device = vr.controller(role(other(hand)));
-        let pointer_raw = pointer_device.and_then(|i| poses.get(i as usize)).and_then(valid);
-        let pointer = tip(&vr, input.as_ref(), other(hand), pointer_raw);
-        let pointer = pointer.as_ref();
         let pointing = other(hand);
+        let pointer_raw = vr
+            .controller(role(pointing))
+            .and_then(|i| poses.get(i as usize))
+            .and_then(valid);
         let (pressed, changed) = match &input {
             Some(inp) => {
                 let take = [Hand::Left, Hand::Right].map(|h| h == pointing && trigger_taken);
                 let _ = vr.update_actions(inp.set, inp.hands, take);
                 let select = vr.digital(inp.select, inp.hand(pointing));
-                let unbound = select.is_none() && pointer.is_some() && !vr.dashboard_visible();
+                let unbound = select.is_none() && pointer_raw.is_some() && !vr.dashboard_visible();
                 unbound_since = if unbound {
                     unbound_since.or(Some(loop_start))
                 } else {
@@ -389,15 +460,43 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         let (down, up) = (pressed && changed && !select_down, !pressed && select_down);
         select_down = pressed;
 
+        // After the actions were updated: both hands' tips as they will be when the next frame shows (else as
+        // they are now). The ray is the pointing hand's, smoothed; the watch is where its wrist will be then.
+        let next = |h: Hand, raw: Option<&Mat>| {
+            input
+                .as_ref()
+                .and_then(|i| vr.pose_next(i.pointer, i.hand(h)))
+                .or_else(|| tip(&vr, input.as_ref(), h, raw))
+        };
+        aim = next(pointing, pointer_raw).map(|raw| aim.map_or(raw, |prev| smooth(&prev, &raw)));
+        let pointer = aim.as_ref();
+        let wrist_next = next(hand, wrist_pose);
+        let watch_pose = if opts.pin_watch {
+            pinned
+        } else {
+            wrist_next.map(|t| compose(&t, &spot))
+        };
+        // The wrist's device pose at that moment, for what rides on it (the dot on the watch).
+        let wrist_ride = match (wrist_next, look.tip_offset) {
+            (Some(t), Some(off)) => Some(compose(&t, &inverse(&off))),
+            (t, _) => t,
+        };
+
         let mut on_panel = false;
         // Where the beam ends, if the pointer is on the watch or the panel.
         let mut beam = None;
-        if let (Some(ptr), true) = (pointer, panel_open) {
+        // The panel under the ray: how far along the ray, and where on it (metres right and up of its middle).
+        let mut panel_at = None;
+        if let (Some(ptr), Some(pp), true) = (pointer, panel_pose, panel_open) {
             let (o, d) = ray(ptr);
-            if let Some((uv, hit)) = vr.intersect(ov_panel, o, d) {
+            if let Some((uv, at)) = hit(&pp, panel_size.0, panel_size.1, o, d) {
                 on_panel = true;
-                beam = Some((o, hit));
-                let (x, y) = uv_to_px(uv, PANEL_PX.0, PANEL_PX.1);
+                beam = Some((o, at));
+                panel_at = Some((
+                    distance(o, at),
+                    [(uv[0] - 0.5) * panel_size.0, (0.5 - uv[1]) * panel_size.1],
+                ));
+                let (x, y) = (uv[0] * PANEL_PX.0 as f32, uv[1] * PANEL_PX.1 as f32);
                 panel.pointer(x, y, Pointer::Move);
                 panel.ui.global::<AppState>().set_cursor_visible(true);
                 if down {
@@ -414,7 +513,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
         }
         if !on_panel
             && look.visible
-            && let Some(p) = pointer
+            && let (Some(p), Some(wp)) = (pointer, watch_pose.as_ref())
         {
             let (o, d) = ray(p);
             // Only the card counts, not the clear part of the texture under a short card. Once on
@@ -422,13 +521,53 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             let s = watch.ui.global::<AppState>();
             let tall = on_watch || s.get_hr_lost() || !s.get_panel_seen();
             let card = if tall { WATCH_PX.1 as f32 } else { WATCH_CARD_PX };
-            beam = vr
-                .intersect(ov_watch, o, d)
-                .filter(|(uv, _)| uv_to_px(*uv, WATCH_PX.0, WATCH_PX.1).1 < card)
-                .map(|(_, hit)| (o, hit));
+            beam = hit(wp, WATCH_WIDTH_M, WATCH_WIDTH_M * aspect, o, d)
+                .filter(|(uv, _)| uv[1] * (WATCH_PX.1 as f32) < card)
+                .map(|(_, at)| (o, at));
         }
         on_watch = !on_panel && beam.is_some();
-        let wants = on_watch || on_panel;
+        // Grip on the pointing hand while its beam is on the watch: the watch goes with that hand (slide it along
+        // the wrist, turn the hand to tilt it) and stays where the grip lets go, as on WristXR. Let go on its
+        // default spot, it is back on it.
+        let gripping = input
+            .as_ref()
+            .and_then(|inp| vr.digital(inp.grab, inp.hand(pointing)))
+            .is_some_and(|(pressed, _)| pressed);
+        match (held, pointer, wrist_next.as_ref()) {
+            (None, Some(ptr), Some(tip)) if gripping && !grip_down && on_watch => {
+                held = Some(grip(ptr, &compose(tip, &spot)));
+                buzz.set(Some(Buzz::Press));
+            }
+            (Some(h), Some(ptr), Some(tip)) if gripping => held_spot = Some(gripped_on_wrist(ptr, &h, tip)),
+            (Some(_), ..) => {
+                held = None;
+                if let Some(s) = held_spot.take() {
+                    app.set_watch_pose((!at_default(&s, &default_spot)).then(|| (hand, rows(&s))));
+                    buzz.set(Some(Buzz::Press));
+                }
+            }
+            _ => {}
+        }
+        // Grip on the panel: it keeps the gripped spot under the beam and turns to face you, level, as a held panel
+        // does on WristXR, and stays where the grip lets go.
+        match (panel_held, pointer, panel_pose, head) {
+            (None, ..) if gripping && !grip_down && panel_at.is_some() => {
+                panel_held = panel_at;
+                buzz.set(Some(Buzz::Press));
+            }
+            (Some((reach, local)), Some(ptr), Some(was), Some(h)) if gripping && panel_open => {
+                let (o, d) = ray(ptr);
+                let m = carried(&was, local, o, d, reach, position(h));
+                if let Err(e) = vr.place(ov_panel, &m) {
+                    tracing::warn!("{e}");
+                }
+                panel_pose = Some(m);
+            }
+            (Some(_), ..) => panel_held = None,
+            _ => {}
+        }
+        grip_down = gripping;
+        let wants = on_watch || on_panel || held.is_some() || panel_held.is_some();
         trigger_taken = if trigger_taken {
             wants || pressed
         } else {
@@ -441,9 +580,11 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 app.mark_panel_seen();
                 app.show(&watch.ui.global::<AppState>(), now);
                 app.show(&panel.ui.global::<AppState>(), now);
-                if let Err(e) = vr.place(ov_panel, &panel_in_front(h)) {
+                let m = panel_in_front(h);
+                if let Err(e) = vr.place(ov_panel, &m) {
                     tracing::warn!("{e}");
                 }
+                panel_pose = Some(m);
                 // Fades in rather than flashing into view.
                 panel_alpha = if motion { 0.0 } else { 1.0 };
                 let _ = vr.set_alpha(ov_panel, panel_alpha);
@@ -456,11 +597,16 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             (Some((from, to)), Some(h)) => {
                 let eye = position(h);
                 let (m, len) = laser(from, to, eye);
-                // The beam rides on the pointing controller and the dot on what it points at, so
-                // both move with them at the headset's rate, in step with each other.
-                let placed = ride(&vr, ov_laser, &m, pointer_device.zip(pointer_raw))
-                    .and_then(|()| vr.set_width(ov_laser, len));
-                let carrier = if on_panel { None } else { wrist.zip(wrist_pose) };
+                // The beam runs from the ray's start to the very point the dot sits on: one ray, one answer, so
+                // the two cannot part (a beam riding the controller pointed where the hand is now, with a dot
+                // where the ray was a frame or two ago). On the watch the dot rides the wrist, so it stays on the
+                // spot of the watch it was measured on between our frames.
+                let placed = vr.place(ov_laser, &m).and_then(|()| vr.set_width(ov_laser, len));
+                let carrier = if on_panel || opts.pin_watch {
+                    None
+                } else {
+                    wrist.zip(wrist_ride.as_ref())
+                };
                 let dotted = ride(&vr, ov_dot, &dot_pose(to, eye), carrier);
                 if placed.is_ok() && !laser_on {
                     laser_on = vr.set_visible(ov_laser, true).is_ok();
@@ -595,10 +741,11 @@ struct Wrist<'a> {
     device: Option<u32>,
     raw: Option<&'a Mat>,
     tip: Option<&'a Mat>,
+    /// The watch relative to the tip pose: its default spot, or where the player put it.
+    spot: &'a Mat,
 }
 
 fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Mat>, full: bool, dt: f32) {
-    let aspect = WATCH_PX.1 as f32 / WATCH_PX.0 as f32;
     // The overlay rides on the device (no lag); the watch is placed from the tip pose, so the
     // offset is the tip in the device's frame. It is the same every frame for one controller model;
     // re-attach when SteamVR hands the role to another device or the model changes.
@@ -610,14 +757,19 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
         (Some(a), Some(b)) => distance(position(&a), position(&b)) > 0.005,
         (a, b) => a.is_some() != b.is_some(),
     };
-    if wrist.device != look.attached_to || look.hand != Some(wrist.hand) || moved {
+    if wrist.device != look.attached_to
+        || look.hand != Some(wrist.hand)
+        || look.spot != Some(*wrist.spot)
+        || moved
+    {
         look.attached_to = wrist.device;
         look.hand = Some(wrist.hand);
+        look.spot = Some(*wrist.spot);
         look.tip_offset = offset;
         let identity = Mat {
             m: [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
         };
-        let m = compose(&offset.unwrap_or(identity), &watch_offset(wrist.hand, aspect));
+        let m = compose(&offset.unwrap_or(identity), wrist.spot);
         if let Some(i) = wrist.device
             && let Err(e) = vr.attach(ov, i, &m)
         {
@@ -630,7 +782,7 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
         _ if full => 1.0,
         (Some(t), Some(h)) if near_face(t, h) => 0.0,
         (Some(t), Some(h)) => {
-            let w = compose(t, &watch_offset(wrist.hand, aspect));
+            let w = compose(t, wrist.spot);
             if look.glance.update(h, &w, dt) {
                 1.0
             } else {

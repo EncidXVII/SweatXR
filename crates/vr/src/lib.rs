@@ -128,6 +128,94 @@ pub fn compose(a: &Mat, b: &Mat) -> Mat {
     mul(a, b)
 }
 
+/// However it is moved, the watch stays within this of its wrist's tip: slid along the forearm and tilted, never
+/// left in the air out of a glance's reach. Room for a second watch up the arm from WristXR's.
+pub const WATCH_REACH_M: f32 = 0.4;
+
+/// A pose from a position and a unit quaternion (x, y, z, w), as WristXR saves its panels.
+pub fn pose_mat(p: Vec3, q: [f32; 4]) -> Mat {
+    let [x, y, z, w] = q;
+    Mat {
+        m: [
+            [
+                1.0 - 2.0 * (y * y + z * z),
+                2.0 * (x * y - z * w),
+                2.0 * (x * z + y * w),
+                p[0],
+            ],
+            [
+                2.0 * (x * y + z * w),
+                1.0 - 2.0 * (x * x + z * z),
+                2.0 * (y * z - x * w),
+                p[1],
+            ],
+            [
+                2.0 * (x * z - y * w),
+                2.0 * (y * z + x * w),
+                1.0 - 2.0 * (x * x + y * y),
+                p[2],
+            ],
+        ],
+    }
+}
+
+/// Another watch on the same wrist (WristXR's): its pose relative to the controller's tip, its width and its
+/// height over width.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Neighbour {
+    pub pose: Mat,
+    pub width_m: f32,
+    pub aspect: f32,
+}
+
+/// The spot beside another watch on the wrist: turned as it is, top edges level, a centimetre apart along the
+/// line its text runs on, on the side further up the arm (away from the controller's tip). `aspect` is our
+/// texture's height over width.
+pub fn beside(n: &Neighbour, aspect: f32) -> Mat {
+    let (x, y, p) = (axis(&n.pose, 0), axis(&n.pose, 1), position(&n.pose));
+    let step = (n.width_m + WATCH_WIDTH_M) / 2.0 + 0.01;
+    let rise = (n.width_m * n.aspect - WATCH_WIDTH_M * aspect) / 2.0;
+    let at = |side: f32| {
+        [
+            p[0] + x[0] * side * step + y[0] * rise,
+            p[1] + x[1] * side * step + y[1] * rise,
+            p[2] + x[2] * side * step + y[2] * rise,
+        ]
+    };
+    let (a, b) = (at(1.0), at(-1.0));
+    let c = if dot(a, a) >= dot(b, b) { a } else { b };
+    let mut m = n.pose;
+    (m.m[0][3], m.m[1][3], m.m[2][3]) = (c[0], c[1], c[2]);
+    m
+}
+
+/// Gripping the watch with the pointing hand: the watch as that hand's ray sees it. Kept while the grip holds, so
+/// the watch follows the ray rigidly, as a gripped watch does on WristXR: move the hand to slide it, turn the hand
+/// to tilt it.
+pub fn grip(ray: &Mat, watch: &Mat) -> Mat {
+    compose(&inverse(ray), watch)
+}
+
+/// Where a gripped watch sits now, relative to its wrist's tip pose (what the profile keeps), within
+/// `WATCH_REACH_M` of that tip.
+pub fn gripped_on_wrist(ray: &Mat, grip: &Mat, wrist_tip: &Mat) -> Mat {
+    let mut m = compose(&inverse(wrist_tip), &compose(ray, grip));
+    let p = position(&m);
+    let far = dot(p, p).sqrt();
+    if far > WATCH_REACH_M {
+        let k = WATCH_REACH_M / far;
+        (m.m[0][3], m.m[1][3], m.m[2][3]) = (p[0] * k, p[1] * k, p[2] * k);
+    }
+    m
+}
+
+/// A watch let go within 2 cm and 15 degrees of its default spot is back on it.
+pub fn at_default(spot: &Mat, default: &Mat) -> bool {
+    distance(position(spot), position(default)) < 0.02
+        && dot(axis(spot, 0), axis(default, 0)) > 0.966
+        && dot(axis(spot, 2), axis(default, 2)) > 0.966
+}
+
 /// Whether the watch is looked at, as on WristXR: its face turned toward the eyes and the eyes
 /// on it. Wide to show (a glance from the corner of the eye is enough), wider still to stay, and
 /// held for at least `GLANCE_HOLD_S`, so hand tremor and head bob at the edge never make it blink.
@@ -308,6 +396,92 @@ pub fn uv_to_px(uv: [f32; 2], width: u32, height: u32) -> (f32, f32) {
     (uv[0] * width as f32, (1.0 - uv[1]) * height as f32)
 }
 
+/// Where a ray (from `o` along the unit `d`) meets a flat overlay `width_m` wide and `height_m` high whose middle
+/// is at `pose` (x to its right, y up, z out of its face): the point on its picture, 0..1 from the top-left corner,
+/// and in the room. None off the overlay, behind the ray's start or edge-on. Our own arithmetic on the poses we
+/// placed the overlays with, as on WristXR: the beam, the dot and the control under them all come from one ray
+/// and one answer, whatever moment SteamVR would have measured at.
+pub fn hit(pose: &Mat, width_m: f32, height_m: f32, o: Vec3, d: Vec3) -> Option<([f32; 2], Vec3)> {
+    let rel = sub(o, position(pose));
+    let (x, y, z) = (axis(pose, 0), axis(pose, 1), axis(pose, 2));
+    let (lo, ld) = (
+        [dot(rel, x), dot(rel, y), dot(rel, z)],
+        [dot(d, x), dot(d, y), dot(d, z)],
+    );
+    if ld[2].abs() < 1e-6 {
+        return None;
+    }
+    let t = -lo[2] / ld[2];
+    let uv = [
+        (lo[0] + ld[0] * t) / width_m + 0.5,
+        0.5 - (lo[1] + ld[1] * t) / height_m,
+    ];
+    let inside = t > 0.0 && (0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]);
+    inside.then_some((uv, [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]))
+}
+
+/// Ray smoothing, WristXR's: a hand that turns less than this in a frame (tremor, tracking noise) is smoothed,
+/// a faster one passes straight through, so aiming never lags.
+pub const SMOOTH_FULL_RAD: f32 = 0.02;
+/// The steadiest hand's share of the new ray each frame.
+pub const SMOOTH_MIN: f32 = 0.25;
+
+/// The ray to use this frame, from last frame's and the controller's new pose.
+pub fn smooth(prev: &Mat, raw: &Mat) -> Mat {
+    let turn = dot(axis(prev, 2), axis(raw, 2)).clamp(-1.0, 1.0).acos();
+    let moved = distance(position(prev), position(raw));
+    let t = (turn / SMOOTH_FULL_RAD).max(moved / 0.02).clamp(SMOOTH_MIN, 1.0);
+    let mix = |a: Vec3, b: Vec3| {
+        [
+            a[0] + (b[0] - a[0]) * t,
+            a[1] + (b[1] - a[1]) * t,
+            a[2] + (b[2] - a[2]) * t,
+        ]
+    };
+    let z = norm(mix(axis(prev, 2), axis(raw, 2)));
+    let x = norm(cross(mix(axis(prev, 1), axis(raw, 1)), z));
+    let y = cross(z, x);
+    let p = mix(position(prev), position(raw));
+    Mat {
+        m: [
+            [x[0], y[0], z[0], p[0]],
+            [x[1], y[1], z[1], p[1]],
+            [x[2], y[2], z[2], p[2]],
+        ],
+    }
+}
+
+/// An upright panel with its middle at `center`, turned to face `eye` (level: it never tips).
+pub fn facing(center: Vec3, eye: Vec3) -> Mat {
+    let to_eye = sub(eye, center);
+    let flat = if to_eye[0].abs() + to_eye[2].abs() < 1e-5 {
+        [0.0, 0.0, 1.0]
+    } else {
+        norm([to_eye[0], 0.0, to_eye[2]])
+    };
+    let up = [0.0, 1.0, 0.0];
+    let right = cross(up, flat);
+    Mat {
+        m: [
+            [right[0], up[0], flat[0], center[0]],
+            [right[1], up[1], flat[1], center[1]],
+            [right[2], up[2], flat[2], center[2]],
+        ],
+    }
+}
+
+/// A gripped panel, as a held one behaves on WristXR: the gripped spot (`local`: metres right and up of its
+/// middle) stays under the ray at `reach` along it, and the panel turns to face `eye` from where its middle was
+/// (`was`), so a grip near an edge never skews it.
+pub fn carried(was: &Mat, local: [f32; 2], o: Vec3, d: Vec3, reach: f32, eye: Vec3) -> Mat {
+    let mut m = facing(position(was), eye);
+    let (x, y) = (axis(&m, 0), axis(&m, 1));
+    for i in 0..3 {
+        m.m[i][3] = o[i] + d[i] * reach - x[i] * local[0] - y[i] * local[1];
+    }
+    m
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +494,160 @@ mod tests {
         let mut m = IDENTITY;
         (m.m[0][3], m.m[1][3], m.m[2][3]) = (p[0], p[1], p[2]);
         m
+    }
+
+    fn close(a: &Mat, b: &Mat) -> bool {
+        (0..3).all(|r| (0..4).all(|c| (a.m[r][c] - b.m[r][c]).abs() < 1e-4))
+    }
+
+    #[test]
+    fn a_gripped_watch_follows_the_pointing_hand_and_stays_on_its_wrist() {
+        let aspect = 0.5;
+        let tip = pointing([-0.2, 1.1, -0.3], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]);
+        let spot = watch_offset(Hand::Left, aspect);
+        let watch = compose(&tip, &spot);
+        // The other hand, to the right of the wrist and pointing left at it.
+        let ray = pointing([0.2, 1.1, -0.14], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+        let held = grip(&ray, &watch);
+        // Nothing moved: it is where it was.
+        assert!(close(&gripped_on_wrist(&ray, &held, &tip), &spot));
+        assert!(at_default(&gripped_on_wrist(&ray, &held, &tip), &spot));
+        // The pointing hand moves 5 cm up the forearm (the wrist's +Z): so does the watch, turned as it was.
+        let mut moved_ray = ray;
+        moved_ray.m[2][3] += 0.05;
+        let moved = gripped_on_wrist(&moved_ray, &held, &tip);
+        assert!(
+            (position(&moved)[2] - position(&spot)[2] - 0.05).abs() < 1e-4,
+            "{:?}",
+            position(&moved)
+        );
+        assert!(dot(axis(&moved, 2), axis(&spot, 2)) > 0.999 && !at_default(&moved, &spot));
+        // The wrist moves with the watch on it: the watch keeps its place on the wrist.
+        let mut tip_later = tip;
+        tip_later.m[0][3] += 0.4;
+        let mut ray_later = moved_ray;
+        ray_later.m[0][3] += 0.4;
+        assert!(close(&gripped_on_wrist(&ray_later, &held, &tip_later), &moved));
+        // Carried a metre off, it stays within reach of the wrist.
+        let mut far_ray = ray;
+        far_ray.m[1][3] += 1.0;
+        let far = position(&gripped_on_wrist(&far_ray, &held, &tip));
+        assert!((dot(far, far).sqrt() - WATCH_REACH_M).abs() < 1e-4);
+    }
+
+    /// Quaternion (x, y, z, w) of a turn about an axis, and the product `a` after `b`.
+    fn turn(axis_: Vec3, angle: f32) -> [f32; 4] {
+        let s = (angle / 2.0).sin();
+        [axis_[0] * s, axis_[1] * s, axis_[2] * s, (angle / 2.0).cos()]
+    }
+    fn after(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+        let ([ax, ay, az, aw], [bx, by, bz, bw]) = (a, b);
+        [
+            aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw,
+            aw * bw - ax * bx - ay * by - az * bz,
+        ]
+    }
+
+    #[test]
+    fn the_ray_finds_the_point_on_the_picture_it_shows() {
+        // A panel 0.5 m wide and 0.25 high, 1 m ahead, facing back at us (+Z).
+        let panel = at([0.0, 1.5, -1.0]);
+        let (o, ahead) = ([0.0, 1.5, 0.0], [0.0, 0.0, -1.0]);
+        let (uv, p) = hit(&panel, 0.5, 0.25, o, ahead).expect("the middle");
+        assert!((uv[0] - 0.5).abs() < 1e-5 && (uv[1] - 0.5).abs() < 1e-5 && (p[2] + 1.0).abs() < 1e-5);
+        // Up and to the right of the middle is right of and above it on the picture (v runs down from the top).
+        let (uv, p) = hit(&panel, 0.5, 0.25, [0.1, 1.55, 0.0], ahead).expect("upper right");
+        assert!((uv[0] - 0.7).abs() < 1e-5 && (uv[1] - 0.3).abs() < 1e-5, "{uv:?}");
+        assert!((p[0] - 0.1).abs() < 1e-5 && (p[1] - 1.55).abs() < 1e-5);
+        // Past an edge, pointing away, or along the panel: nothing.
+        assert!(hit(&panel, 0.5, 0.25, [0.3, 1.5, 0.0], ahead).is_none());
+        assert!(hit(&panel, 0.5, 0.25, o, [0.0, 0.0, 1.0]).is_none());
+        assert!(hit(&panel, 0.5, 0.25, o, [1.0, 0.0, 0.0]).is_none());
+    }
+
+    #[test]
+    fn a_steady_hand_is_smoothed_and_a_fast_one_is_not() {
+        let prev = pointing([0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]);
+        // A tremor: 1 mm and a few thousandths of a radian. A quarter of the way there.
+        let mut near = prev;
+        near.m[0][3] += 0.001;
+        let s = smooth(&prev, &near);
+        assert!((s.m[0][3] - 0.00025).abs() < 1e-6, "{}", s.m[0][3]);
+        // A real move: 10 cm and a quarter turn. Straight through, and still a rigid pose.
+        let far = pointing([0.1, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+        let s = smooth(&prev, &far);
+        assert!(close(&s, &far));
+        assert!(
+            (dot(axis(&s, 0), axis(&s, 1))).abs() < 1e-5
+                && (dot(axis(&s, 2), axis(&s, 2)) - 1.0).abs() < 1e-5
+        );
+    }
+
+    #[test]
+    fn a_carried_panel_keeps_the_gripped_spot_under_the_ray_and_faces_you() {
+        let eye = [0.0, 1.6, 0.0];
+        let was = facing([0.0, 1.5, -0.7], eye);
+        // Gripped 10 cm right of and 5 cm above its middle; the hand then swings the ray to the right.
+        let (o, d, reach) = ([0.2, 1.2, 0.0], norm([0.6, 0.3, -0.7]), 0.9);
+        let now = carried(&was, [0.1, 0.05], o, d, reach, eye);
+        let spot = [o[0] + d[0] * reach, o[1] + d[1] * reach, o[2] + d[2] * reach];
+        let (uv, p) = hit(&now, 0.5, 0.375, o, d).expect("still under the ray");
+        assert!(distance(p, spot) < 1e-4);
+        assert!(
+            (uv[0] - 0.7).abs() < 1e-3 && (uv[1] - (0.5 - 0.05 / 0.375)).abs() < 1e-3,
+            "{uv:?}"
+        );
+        // Upright, its face toward the eyes (as seen from where it was: it finishes the turn over the next frames).
+        assert!((axis(&now, 1)[1] - 1.0).abs() < 1e-5);
+        assert!(dot(axis(&now, 2), norm(sub(eye, position(&now)))) > 0.5);
+        let settled = carried(&now, [0.1, 0.05], o, d, reach, eye);
+        assert!(dot(axis(&settled, 2), norm(sub(eye, position(&settled)))) > 0.9);
+    }
+
+    #[test]
+    fn wristxr_saves_its_watch_the_way_ours_is_placed() {
+        // WristXR's default left-hand watch (Panel::on_wrist): a quarter turn about Z, face up, a quarter turn
+        // about Z again; 4 cm to the back of the hand, 16 cm behind the tip, its top edge 4.9 cm from the anchor.
+        use std::f32::consts::FRAC_PI_2;
+        let aspect = 0.5;
+        let to_back = turn([0.0, 0.0, 1.0], FRAC_PI_2);
+        let q = after(
+            to_back,
+            after(
+                turn([1.0, 0.0, 0.0], -FRAC_PI_2),
+                turn([0.0, 0.0, 1.0], FRAC_PI_2),
+            ),
+        );
+        let ours = watch_offset(Hand::Left, aspect);
+        let theirs = pose_mat(position(&ours), q);
+        assert!(close(&theirs, &ours), "{theirs:?} vs {ours:?}");
+    }
+
+    #[test]
+    fn our_watch_sits_beside_another_up_the_arm_with_level_tops() {
+        // WristXR's watch on its default spot, taller than ours (open).
+        let theirs = Neighbour {
+            pose: watch_offset(Hand::Left, 1.5),
+            width_m: 0.14,
+            aspect: 1.5,
+        };
+        let ours = beside(&theirs, 0.5);
+        let (p, q) = (position(&ours), position(&theirs.pose));
+        // 15 cm further behind the tip (+Z: up the arm), turned the same way.
+        assert!((p[2] - q[2] - 0.15).abs() < 1e-4, "{p:?} vs {q:?}");
+        assert!(dot(axis(&ours, 2), axis(&theirs.pose, 2)) > 0.999);
+        // Top edges level: each centre plus half its height along its up.
+        let top = |m: &Mat, h: f32| dot(position(m), axis(m, 1)) + h / 2.0;
+        assert!((top(&ours, 0.14 * 0.5) - top(&theirs.pose, 0.14 * 1.5)).abs() < 1e-4);
+        // On the right hand the text runs the other way: still up the arm.
+        let right = Neighbour {
+            pose: watch_offset(Hand::Right, 0.5),
+            width_m: 0.14,
+            aspect: 0.5,
+        };
+        assert!(position(&beside(&right, 0.5))[2] > position(&right.pose)[2] + 0.1);
     }
 
     #[test]
