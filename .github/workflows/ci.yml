@@ -86,7 +86,7 @@ jobs:
           v="${GITHUB_REF_NAME#v}"
           awk -v v="$v" 'index($0, "## [" v "]") == 1 {f = 1; next} /^## \[/ {f = 0} f' CHANGELOG.md > notes.md
           test -s notes.md || { echo "CHANGELOG.md has no section for $v"; exit 1; }
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           draft: true
           body_path: notes.md
