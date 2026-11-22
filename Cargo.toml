@@ -8,7 +8,7 @@ edition = "2024"
 license = "GPL-3.0-only"
 rust-version = "1.88"
 repository = "https://github.com/EncidXVII/SweatXR"
-homepage = "https://github.com/EncidXVII/SweatXR"
+homepage = "https://everyvr.net/sweatxr"
 
 [workspace.dependencies]
 sweatxr-core = { path = "crates/core" }

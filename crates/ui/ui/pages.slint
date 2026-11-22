@@ -1190,6 +1190,14 @@ component SettingsDevice inherits VerticalLayout {
             sub: "everyvr.net/sweatxr";
             url: "https://everyvr.net/sweatxr";
         }
+        // SweatXR never connects to the internet, so it cannot look for a new version itself: this opens the page
+        // that lists the newest one.
+        LinkRow {
+            divider: true;
+            label: "Check for updates";
+            sub: "The newest version and its checksums, in your browser";
+            url: "https://everyvr.net/sweatxr/download";
+        }
         Row {
             divider: true;
             label: "Made by EncidXVII";

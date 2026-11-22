@@ -27,6 +27,7 @@ It keeps history per day and per game, and your data never leaves your computer.
 · **[Linux x64 AppImage](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-x64.AppImage)**
 · **[Linux arm64 / Steam Frame (experimental)](https://github.com/EncidXVII/SweatXR/releases/latest/download/sweatxr-linux-arm64.AppImage)**
 · [All downloads](https://github.com/EncidXVII/SweatXR/releases/latest)
+· [Guides and help on everyvr.net](https://everyvr.net/sweatxr)
 
 > **Status: first release (1.0).** Calorie numbers are estimates and this is not a medical device.
 > The Linux and Steam Frame builds are experimental. Comparisons against your fitness watch help
@@ -198,7 +199,7 @@ reporting (see [SECURITY.md](SECURITY.md)).
 
 ## More PC VR tools from the same author
 
-Four free, open-source tools for PC VR by [EncidXVII](https://github.com/EncidXVII), with one look and one way of working:
+Four free, open-source tools for PC VR by [EncidXVII](https://github.com/EncidXVII), with one look and one way of working. Guides, downloads and news for all four: [everyvr.net](https://everyvr.net).
 
 | | |
 |---|---|

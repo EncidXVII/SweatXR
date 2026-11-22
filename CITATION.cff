@@ -9,6 +9,7 @@ version: 1.0.0
 date-released: 2026-11-08
 license: GPL-3.0-only
 repository-code: "https://github.com/EncidXVII/SweatXR"
+url: "https://everyvr.net/sweatxr"
 keywords:
   - virtual reality
   - VR fitness
