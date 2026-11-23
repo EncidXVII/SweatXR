@@ -14,16 +14,16 @@
   outputs =
     { self, nixpkgs }:
     let
-      version = "0.7.0";
+      version = "0.7.1";
       # The release file for each system and its SHA-256 (the .sha256 file beside it, in Nix's SRI form).
       assets = {
         x86_64-linux = {
           arch = "x64";
-          hash = "sha256-eBxgQlxkdYXvt1337lao9nN7Md50NXq6qQZvIdCI0dE=";
+          hash = "sha256-mNt87VQlFQi9u3kJ1awnAqTDaxkGspLzIvAybzUYieo=";
         };
         aarch64-linux = {
           arch = "arm64";
-          hash = "sha256-JrHVwpXb7wE9uStZWLDy5CuMtfjqzYrw+cKa4wPVlrM=";
+          hash = "sha256-YlvHnNwHBMoPyCIzMVg1b723uiq8tCgsCXWnqKB2lgQ=";
         };
       };
       forEach = f: nixpkgs.lib.genAttrs (builtins.attrNames assets) (system: f nixpkgs.legacyPackages.${system} assets.${system});
