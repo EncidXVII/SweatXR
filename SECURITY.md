@@ -8,7 +8,7 @@ written into SteamVR's configuration when the app registers itself.
 ## Reporting a vulnerability
 
 Please report privately through GitHub: **Security > Report a vulnerability** on the repository
-page. Do not open a public issue. Expect a first reply within a week. Fixes ship in the next
+page, or by email to [mykola@everyvr.net](mailto:mykola@everyvr.net). Do not open a public issue. Expect a first reply within a week. Fixes ship in the next
 release and the report is credited unless you prefer otherwise.
 
 ## Supported versions

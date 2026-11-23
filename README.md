@@ -197,8 +197,8 @@ If SweatXR helps you, a star helps other VR players find it.
 
 ## Contact
 
-Maintainer contact: open an issue, or for private matters use GitHub's private vulnerability
-reporting (see [SECURITY.md](SECURITY.md)).
+Maintainer contact: open an issue, or for private matters email [mykola@everyvr.net](mailto:mykola@everyvr.net). Security
+problems: see [SECURITY.md](SECURITY.md).
 
 ## More PC VR tools from the same author
 
