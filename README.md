@@ -82,6 +82,9 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
    on your wrist right away, and from then on it starts with SteamVR. Turn that off in
    Settings > Device > Start with SteamVR.
 
+**NixOS or Nix:** `nix run github:EncidXVII/SweatXR`, or `nix profile install github:EncidXVII/SweatXR` to keep it
+(steps 1 and 2 in one). The `sweatxr` command keeps its files in `~/.local/share/sweatxr` and runs them from there.
+
 **Uninstall:** quit SweatXR (Windows: tray icon > Quit; Linux: close its window) and SteamVR, then run
 `Uninstall SweatXR.cmd` in its folder (Windows) or `./uninstall.sh` (Linux; or `sweatxr --uninstall`). It takes
 SweatXR off SteamVR's list and deletes its settings and workout history; exports in `Documents/SweatXR` stay.
