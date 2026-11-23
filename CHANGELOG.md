@@ -10,8 +10,8 @@ All notable changes to this project are documented here. Format based on
 - About lists the maker's profiles as GitHub, X, Threads, with X at its new address (x.com/EncidXVII).
 
 ### Added
-- Packages for Linux: a Nix flake (`nix run github:EncidXVII/SweatXR`) and an AUR package (`sweatxr-bin`), both
-  built from the release files.
+- Linux packaging: a Nix flake (`nix run github:EncidXVII/SweatXR`), and an Arch Linux PKGBUILD in `packaging/aur`,
+  both built from the release files.
 
 ## [0.7.0] - 2026-11-23
 
