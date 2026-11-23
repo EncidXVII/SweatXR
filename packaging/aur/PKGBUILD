@@ -1,0 +1,32 @@
+# Maintainer: EncidXVII
+# The AUR package, built from the published release. The AUR workflow (.github/workflows/aur.yml) sets pkgver and
+# the checksums from each new release and pushes it to aur.archlinux.org; the values here are the last ones.
+pkgname=sweatxr-bin
+pkgver=0.7.1
+pkgrel=1
+pkgdesc="Calories, active minutes and heart rate on your wrist in every SteamVR game"
+arch=('x86_64' 'aarch64')
+url="https://everyvr.net/sweatxr"
+_repo="https://github.com/EncidXVII/SweatXR"
+license=('GPL-3.0-only')
+depends=('fontconfig' 'dbus' 'gcc-libs' 'libxkbcommon' 'wayland' 'vulkan-icd-loader' 'libx11' 'libxcursor' 'libxi' 'libxcb' 'hicolor-icon-theme')
+optdepends=('steam: SteamVR'
+            'bluez: a Bluetooth LE heart rate strap')
+provides=('sweatxr')
+conflicts=('sweatxr')
+source=("sweatxr.desktop::$_repo/raw/v$pkgver/packaging/sweatxr.desktop"
+        "sweatxr.png::$_repo/raw/v$pkgver/packaging/sweatxr.png")
+source_x86_64=("sweatxr-$pkgver-x64.tar.gz::$_repo/releases/download/v$pkgver/sweatxr-linux-x64.tar.gz")
+source_aarch64=("sweatxr-$pkgver-arm64.tar.gz::$_repo/releases/download/v$pkgver/sweatxr-linux-arm64.tar.gz")
+sha256sums=('SKIP' 'SKIP')
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+  # In /usr/bin, a path that stays the same across updates: SweatXR registers it with SteamVR.
+  install -Dm755 sweatxr/sweatxr "$pkgdir/usr/bin/sweatxr"
+  install -Dm644 sweatxr.desktop "$pkgdir/usr/share/applications/sweatxr.desktop"
+  install -Dm644 sweatxr.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/sweatxr.png"
+  install -Dm644 sweatxr/README.md "$pkgdir/usr/share/doc/sweatxr/README.md"
+  install -Dm644 sweatxr/LICENSE sweatxr/NOTICE sweatxr/THIRD_PARTY_NOTICES.md -t "$pkgdir/usr/share/licenses/sweatxr/"
+}
