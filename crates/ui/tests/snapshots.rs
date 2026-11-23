@@ -68,6 +68,21 @@ fn store() -> (Store, Profile) {
             false,
         );
     }
+    // The weeks before: most days played, a rest day now and then, so a month of history looks lived
+    // in. No strap on those days, so calibration still shows 19 of 20 minutes.
+    for back in 7..=29 {
+        if back % 5 == 2 || back == 16 {
+            continue;
+        }
+        let app = if back % 3 == 0 { "app.boxing" } else { "app.rhythm" };
+        play(
+            NOW - back * DAY,
+            420 + (back * 7 % 11) * 90,
+            0.45 + (back * 5 % 7) as f32 * 0.06,
+            app,
+            false,
+        );
+    }
     play(NOW - 3 * 3600, 1200, 0.9, "app.boxing", true);
     play(NOW - 3600, 900, 0.6, "app.rhythm", false);
     play(NOW - 1800, 300, 0.35, "app.sim", false);
