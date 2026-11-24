@@ -7,9 +7,10 @@ What search engines and assistants read first is the repository's own page, so i
 1. **Name**: `SweatXR` (GitHub redirects the old address after a rename).
 2. **About**:
    - Description: `Free, open-source VR fitness and calorie tracker for every SteamVR game: calories, active minutes and heart rate zones on a wrist watch, Bluetooth heart rate straps, history per game, TCX and CSV export. No account, no cloud.`
-   - Topics (20 at most): `vr`, `virtual-reality`, `steamvr`, `openvr`, `vr-fitness`, `fitness-tracker`, `calorie-counter`, `calories`,
-     `heart-rate`, `bluetooth-le`, `exergaming`, `workout`, `vr-overlay`, `tcx`, `valve-index`, `meta-quest`,
-     `steam-frame`, `linux`, `rust`, `slint`.
+   - Topics (20 at most, most searched first; no competitor names): `vr`, `virtual-reality`, `pcvr`, `steamvr`,
+     `openvr`, `steamvr-overlay`, `vr-overlay`, `vr-fitness`, `fitness`, `fitness-tracker`, `calorie-counter`,
+     `heart-rate`, `heart-rate-monitor`, `exergaming`, `workout`, `bluetooth-le`, `meta-quest`, `valve-index`,
+     `steam-frame`, `linux`.
 3. **Settings > General > Social preview**: upload `docs/img/og.png` (the card shown when the link is shared).
 4. **Security**: turn on Private vulnerability reporting (`SECURITY.md` sends reports there) and Dependabot alerts.
 5. Features: Issues on, Discussions on (Q&A, Show and tell), Wiki off.
