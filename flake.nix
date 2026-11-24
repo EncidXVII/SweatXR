@@ -19,11 +19,11 @@
       assets = {
         x86_64-linux = {
           arch = "x64";
-          hash = "sha256-mNt87VQlFQi9u3kJ1awnAqTDaxkGspLzIvAybzUYieo=";
+          hash = "sha256-5/Xl1FgyXdUkZBXFHnjj0FJhwCmkXXBfwC/ME43OCgI=";
         };
         aarch64-linux = {
           arch = "arm64";
-          hash = "sha256-YlvHnNwHBMoPyCIzMVg1b723uiq8tCgsCXWnqKB2lgQ=";
+          hash = "sha256-Zdtv5IEAhvI2bi3+OtkhT6tWce+ga03ikTQNodI9gjI=";
         };
       };
       forEach = f: nixpkgs.lib.genAttrs (builtins.attrNames assets) (system: f nixpkgs.legacyPackages.${system} assets.${system});
