@@ -95,7 +95,14 @@ impl Hr {
         match self {
             Self::Live(b) => b.status(),
             // The desktop never connects, so "Connecting" there would never resolve.
-            Self::PairOnly(b) if matches!(b.status(), Status::Scanning | Status::NoAdapter) => b.status(),
+            Self::PairOnly(b)
+                if matches!(
+                    b.status(),
+                    Status::Scanning | Status::NoAdapter | Status::BluetoothOff
+                ) =>
+            {
+                b.status()
+            }
             Self::PairOnly(_) => Status::Off,
             Self::Fake(f) => f.status(),
         }

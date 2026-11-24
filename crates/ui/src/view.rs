@@ -363,6 +363,7 @@ fn hr_status(live: &Live, p: &Profile) -> String {
         (Status::Off, _) if p.hr_device.is_some() => "Saved, connects in VR".into(),
         (Status::Off, _) => "No strap chosen".into(),
         (Status::NoAdapter, _) => "No Bluetooth".into(),
+        (Status::BluetoothOff, _) => "Bluetooth is off".into(),
         (Status::Scanning, _) if live.devices.len() > SHOWN_DEVICES => {
             format!("{SHOWN_DEVICES} of {} shown", live.devices.len())
         }

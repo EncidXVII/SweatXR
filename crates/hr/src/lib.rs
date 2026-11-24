@@ -20,6 +20,8 @@ pub enum Status {
     #[default]
     Off,
     NoAdapter,
+    /// The adapter is there but switched off.
+    BluetoothOff,
     Scanning,
     Connecting,
     Connected,

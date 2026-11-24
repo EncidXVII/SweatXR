@@ -22,6 +22,10 @@ const TICK: Duration = Duration::from_millis(100);
 const REFRESH_EVERY: u32 = 20;
 
 pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
+    // Wayland docks match the window to sweatxr.desktop by this, for its name and icon.
+    if let Err(e) = slint::set_xdg_app_id("sweatxr") {
+        tracing::warn!("app id: {e}");
+    }
     let app = Rc::new(RefCell::new(App::open(dirs, |_| {
         Hr::PairOnly(BleHr::start(None))
     })?));

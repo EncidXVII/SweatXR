@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Quitting lets the heart rate strap go, so a phone or watch can connect to it at once.
+- With Bluetooth switched off, the strap status says "Bluetooth is off" instead of "Connecting…".
+- Linux: a strap is saved by its own address, so a Bluetooth dongle that comes back under another name keeps it.
+  Straps saved before still connect.
+- Linux: the window gives its app id, so Wayland docks show SweatXR's name and icon.
+- Linux: GNOME's and KDE's reduce-animations settings are followed, as Windows' already was.
+- Nix: the `sweatxr` command keeps its files from garbage collection, so the start with SteamVR keeps working.
+- README: what to do when the watch doesn't come with SteamVR, and that Monado and WiVRn aren't supported yet.
+
 ## [0.7.1] - 2026-11-23
 
 ### Changed
