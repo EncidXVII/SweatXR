@@ -170,14 +170,13 @@ async fn run(state: State, mut rx: mpsc::UnboundedReceiver<Cmd>, mut target: Opt
             Wait::Closed => return,
             Wait::Cmd(Cmd::Scan) => scan_requested = true,
             Wait::Cmd(Cmd::Use(id)) => target = id,
-            Wait::Retry if target.is_some() => {
-                if let Wait::Cmd(c) = next_cmd(&mut rx, Some(RETRY)).await {
-                    match c {
-                        Cmd::Scan => scan_requested = true,
-                        Cmd::Use(id) => target = id,
-                    }
-                }
-            }
+            Wait::Retry if target.is_some() => match next_cmd(&mut rx, Some(RETRY)).await {
+                // Quitting: no reconnect after the app has let go.
+                Wait::Closed => return,
+                Wait::Cmd(Cmd::Scan) => scan_requested = true,
+                Wait::Cmd(Cmd::Use(id)) => target = id,
+                Wait::Retry => {}
+            },
             Wait::Retry => {}
         }
     }
@@ -212,7 +211,7 @@ async fn heart_rate_peripherals(c: &Adapter) -> Vec<(Peripheral, Device)> {
 }
 
 /// A strap saved by an older SweatXR on Linux, by its BlueZ path (`hci0/dev_AA_BB_CC_DD_EE_FF`): its address.
-fn legacy_id(id: &str) -> Option<String> {
+pub fn legacy_id(id: &str) -> Option<String> {
     let dev = id.rsplit('/').next()?.strip_prefix("dev_")?;
     (dev.len() == 17).then(|| dev.replace('_', ":"))
 }
@@ -255,9 +254,12 @@ async fn stream(c: &Adapter, id: &str, state: &State, rx: &mut mpsc::UnboundedRe
         if peripheral.is_some() {
             break;
         }
-        if let Wait::Cmd(cmd) = next_cmd(rx, Some(Duration::from_secs(1))).await {
-            let _ = c.stop_scan().await;
-            return Wait::Cmd(cmd);
+        match next_cmd(rx, Some(Duration::from_secs(1))).await {
+            Wait::Retry => {}
+            other => {
+                let _ = c.stop_scan().await;
+                return other;
+            }
         }
     }
     let _ = c.stop_scan().await;

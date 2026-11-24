@@ -435,11 +435,12 @@ impl OpenXr {
             Some(&image) => self.gpu.fill(slot, rgba, image, live.bgra),
             None => Err(fail("overlay", "swapchain image out of range")),
         };
-        // Released even when the copy failed, so the swapchain is never left holding an image.
-        chain
-            .swapchain
-            .release_image()
-            .map_err(xr_err("xrReleaseSwapchainImage"))?;
+        // Released even when the copy failed, so the swapchain is never left holding an image. A failed release
+        // leaves it waiting on that image, so a new one comes next time.
+        if let Err(e) = chain.swapchain.release_image() {
+            layer.chain = None;
+            return Err(xr_err("xrReleaseSwapchainImage")(e));
+        }
         copied?;
         chain.ready = true;
         Ok(())

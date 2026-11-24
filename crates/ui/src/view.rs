@@ -323,7 +323,11 @@ fn settings_page(s: &AppState, store: &Store, p: &Profile, live: &Live) -> Resul
         .map(|d| HrDevice {
             id: d.id.as_str().into(),
             name: d.name.as_str().into(),
-            chosen: p.hr_device.as_deref() == Some(&d.id),
+            // A strap saved by an older version on Linux is named by its BlueZ path: the same strap.
+            chosen: p
+                .hr_device
+                .as_deref()
+                .is_some_and(|s| s == d.id || sweatxr_hr::legacy_id(s).is_some_and(|l| l == d.id)),
         })
         .collect();
     set_if_changed(&s.get_hr_devices(), ModelRc::new(VecModel::from(devices)), |m| {

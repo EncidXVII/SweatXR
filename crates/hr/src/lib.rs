@@ -6,7 +6,7 @@
 mod ble;
 mod parse;
 
-pub use ble::BleHr;
+pub use ble::{BleHr, legacy_id};
 pub use parse::{Contact, Measurement, ParseError, parse};
 
 use std::time::{Duration, Instant};
