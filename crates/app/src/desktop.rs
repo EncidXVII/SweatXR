@@ -20,6 +20,12 @@ use crate::setup::Dirs;
 const TICK: Duration = Duration::from_millis(100);
 /// Ticks between database refreshes.
 const REFRESH_EVERY: u32 = 20;
+#[cfg(not(target_os = "linux"))]
+const NO_STEAMVR: &str = "SteamVR is not installed. Install it from Steam to get the watch in VR.";
+/// Monado and WiVRn do not start the overlay, so the way to start it is part of the notice.
+#[cfg(target_os = "linux")]
+const NO_STEAMVR: &str = "SteamVR is not installed. Install it from Steam to get the watch in VR, or with \
+                          Monado or WiVRn running, start it with sweatxr --overlay (experimental).";
 
 pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     // Wayland docks match the window to sweatxr.desktop by this, for its name and icon.
@@ -30,8 +36,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
         Hr::PairOnly(BleHr::start(None))
     })?));
     if sweatxr_vr::runtime_dir().is_none() {
-        app.borrow_mut().notice =
-            Some("SteamVR is not installed. Install it from Steam to get the watch in VR.".into());
+        app.borrow_mut().notice = Some(NO_STEAMVR.into());
     }
     let ui = DesktopWindow::new()?;
     // Desk distance: denser type and controls than the VR panel, from the same tokens.

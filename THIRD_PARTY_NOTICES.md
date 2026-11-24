@@ -11,7 +11,8 @@
 
 ## Runtime
 
-OpenVR (`openvr_api`) is loaded from the user's SteamVR install and not redistributed.
+OpenVR (`openvr_api`) is loaded from the user's SteamVR install and not redistributed. On Linux without SteamVR,
+the system's OpenXR loader (`libopenxr_loader.so.1`) is loaded the same way.
 
 ## Rust crates
 

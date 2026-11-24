@@ -46,7 +46,7 @@ and checks memory, CPU and the log. It edits SteamVR's settings and restores the
 |---|---|
 | `crates/core` | energy model, sessions, SQLite storage, TCX/CSV export, replay traces |
 | `crates/hr` | Bluetooth LE heart rate and the packet parser |
-| `crates/vr` | OpenVR binding (runtime-loaded), Vulkan overlay textures, watch/panel geometry |
+| `crates/vr` | OpenVR binding (runtime-loaded), OpenXR overlay backend (Linux), Vulkan overlay textures, watch/panel geometry |
 | `crates/ui` | Slint views shared by watch, panel and desktop; tokens from `design-tokens.json` |
 | `crates/app` | the `sweatxr` binary: overlay, desktop window, tray, SteamVR registration |
 

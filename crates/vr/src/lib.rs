@@ -2,15 +2,24 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! OpenVR access plus the pure geometry of the watch and panel. Geometry is kept out of the FFI
-//! module so it is testable without SteamVR.
+//! module so it is testable without SteamVR. On Linux, an OpenXR overlay backend (Monado, WiVRn) answers the
+//! same calls when SteamVR is not there (`runtime`).
 
 mod ffi;
+#[cfg(target_os = "linux")]
+mod runtime;
+#[cfg(target_os = "linux")]
+mod xr;
 
+#[cfg(not(target_os = "linux"))]
+pub use ffi::Vr;
 pub use ffi::{
     AppKind, Apps, ERR_NO_SERVER, EVENT_QUIT, EVENT_SCENE_CHANGED, Gpu, HMD, Handle, HmdMatrix34,
-    MAX_DEVICES, ROLE_LEFT, ROLE_RIGHT, Server, TrackedDevicePose, Vr, VrError, config_dir, runtime_dir,
+    MAX_DEVICES, ROLE_LEFT, ROLE_RIGHT, Server, TrackedDevicePose, VrError, config_dir, runtime_dir,
     terminate,
 };
+#[cfg(target_os = "linux")]
+pub use {ffi::Vr as OpenVr, runtime::Vr};
 
 use sweatxr_core::profile::Hand;
 use sweatxr_core::{PoseFrame, Vec3};
@@ -157,6 +166,47 @@ pub fn pose_mat(p: Vec3, q: [f32; 4]) -> Mat {
             ],
         ],
     }
+}
+
+/// The rotation of a pose as a unit quaternion (x, y, z, w): the inverse of `pose_mat`.
+pub fn quaternion(m: &Mat) -> [f32; 4] {
+    let r = |i: usize, j: usize| m.m[i][j];
+    let trace = r(0, 0) + r(1, 1) + r(2, 2);
+    let q = if trace > 0.0 {
+        let s = (trace + 1.0).sqrt() * 2.0;
+        [
+            (r(2, 1) - r(1, 2)) / s,
+            (r(0, 2) - r(2, 0)) / s,
+            (r(1, 0) - r(0, 1)) / s,
+            0.25 * s,
+        ]
+    } else if r(0, 0) > r(1, 1) && r(0, 0) > r(2, 2) {
+        let s = (1.0 + r(0, 0) - r(1, 1) - r(2, 2)).sqrt() * 2.0;
+        [
+            0.25 * s,
+            (r(0, 1) + r(1, 0)) / s,
+            (r(0, 2) + r(2, 0)) / s,
+            (r(2, 1) - r(1, 2)) / s,
+        ]
+    } else if r(1, 1) > r(2, 2) {
+        let s = (1.0 + r(1, 1) - r(0, 0) - r(2, 2)).sqrt() * 2.0;
+        [
+            (r(0, 1) + r(1, 0)) / s,
+            0.25 * s,
+            (r(1, 2) + r(2, 1)) / s,
+            (r(0, 2) - r(2, 0)) / s,
+        ]
+    } else {
+        let s = (1.0 + r(2, 2) - r(0, 0) - r(1, 1)).sqrt() * 2.0;
+        [
+            (r(0, 2) + r(2, 0)) / s,
+            (r(1, 2) + r(2, 1)) / s,
+            0.25 * s,
+            (r(1, 0) - r(0, 1)) / s,
+        ]
+    };
+    let n = q.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-6);
+    q.map(|v| v / n)
 }
 
 /// Another watch on the same wrist (WristXR's): its pose relative to the controller's tip, its width and its
@@ -548,6 +598,24 @@ mod tests {
             aw * bz + ax * by - ay * bx + az * bw,
             aw * bw - ax * bx - ay * by - az * bz,
         ]
+    }
+
+    #[test]
+    fn a_pose_turns_into_a_quaternion_and_back() {
+        let cases = [
+            pointing([0.1, 1.2, -0.3], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]),
+            pointing([0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]),
+            pointing([0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
+            pointing([0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [-1.0, 0.0, 0.0]),
+            compose(
+                &pointing([0.3, 1.1, -0.2], [0.6, 0.0, -0.8], [0.0, 1.0, 0.0]),
+                &watch_offset(Hand::Right, 0.5),
+            ),
+        ];
+        for m in cases {
+            let back = pose_mat(position(&m), quaternion(&m));
+            assert!(close(&back, &m), "{m:?} came back as {back:?}");
+        }
     }
 
     #[test]

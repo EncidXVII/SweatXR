@@ -3,6 +3,7 @@
 
 //! The in-VR process: a watch on the wrist and a panel opened from it. Runs once per compositor
 //! frame, ticks the tracker at 1 Hz, redraws the watch at most 10 Hz and only when something changed.
+//! On SteamVR, or on Linux on an OpenXR runtime that shows overlays (Monado, WiVRn): see `connect`.
 
 use std::cell::Cell;
 use std::error::Error;
@@ -53,6 +54,9 @@ const WATCH_HIDE_S: f32 = 0.18;
 const PANEL_FADE_S: f32 = 0.16;
 const HOME_KEY: &str = "steamvr.home";
 const HOME_NAME: &str = "SteamVR Home";
+/// OpenXR does not say which game is in front, so every game there counts under this one name.
+const XR_GAME_KEY: &str = "openxr.game";
+const XR_GAME_NAME: &str = "VR game";
 /// The watch card at its tallest (232 px plus a strip line); a shorter card leaves the rest clear.
 const WATCH_PX: (u32, u32) = (560, 324);
 const WATCH_CARD_PX: f32 = 232.0;
@@ -172,19 +176,49 @@ fn watch_server() -> Arc<AtomicBool> {
     gone
 }
 
-pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
-    // SteamVR starts the overlay with itself. Started any other way while SteamVR is off (Windows
-    // restoring apps at sign-in, a stale shortcut), it must not start SteamVR or wait in the
-    // background: it leaves.
-    if let Err(e) = Apps::init(AppKind::Background)
+/// SteamVR starts the overlay with itself. Started any other way while SteamVR is off (Windows
+/// restoring apps at sign-in, a stale shortcut), it must not start SteamVR or wait in the
+/// background: it leaves (None). On Linux an OpenXR runtime that shows overlays (Monado, WiVRn)
+/// takes SteamVR's place when SteamVR is not running, or straight away with `SWEATXR_OPENXR=1`
+/// (for a SteamVR install that is there but not in use).
+fn connect() -> Result<Option<Vr>, Box<dyn Error>> {
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("SWEATXR_OPENXR").is_some_and(|v| v == "1") {
+        tracing::info!("SteamVR skipped (SWEATXR_OPENXR=1)");
+        return Ok(Some(Vr::openxr()?));
+    }
+    let steamvr = Apps::init(AppKind::Background).map(drop);
+    #[cfg(target_os = "linux")]
+    if let Err(e) = &steamvr {
+        match Vr::openxr() {
+            Ok(vr) => {
+                tracing::info!("SteamVR unavailable ({e}); using OpenXR");
+                return Ok(Some(vr));
+            }
+            Err(x) => tracing::info!("no OpenXR overlay runtime (Monado, WiVRn): {x}"),
+        }
+    }
+    if let Err(e) = steamvr
         && e.code == ERR_NO_SERVER
     {
         tracing::info!("SteamVR is not running; the overlay starts with it");
-        return Ok(());
+        return Ok(None);
     }
-    let vr = Vr::init(AppKind::Overlay)?;
+    Ok(Some(Vr::init(AppKind::Overlay)?))
+}
+
+pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
+    let Some(vr) = connect()? else {
+        return Ok(());
+    };
     tracing::info!("overlay {} started", env!("CARGO_PKG_VERSION"));
-    let server_gone = watch_server();
+    // Only SteamVR has a server to watch, a game name to give, and a list to be registered on.
+    let steamvr = vr.apps();
+    let server_gone = if steamvr.is_some() {
+        watch_server()
+    } else {
+        Arc::default()
+    };
     let mut app = App::open(dirs, |p| {
         if opts.fake_hr {
             Hr::Fake(FakeHr::workout())
@@ -192,12 +226,14 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             Hr::Live(BleHr::start(p.hr_device.clone()))
         }
     })?;
-    if let Err(e) = setup::register(vr.apps(), dirs, app.profile.auto_start) {
-        tracing::warn!("register with SteamVR: {e}");
-    }
-    // Before the actions, so even an overlay SteamVR did not start gets its buttons on the first launch.
-    if let Err(e) = vr.apps().identify(setup::APP_KEY) {
-        tracing::warn!("{e}");
+    if let Some(apps) = steamvr {
+        if let Err(e) = setup::register(apps, dirs, app.profile.auto_start) {
+            tracing::warn!("register with SteamVR: {e}");
+        }
+        // Before the actions, so even an overlay SteamVR did not start gets its buttons on the first launch.
+        if let Err(e) = apps.identify(setup::APP_KEY) {
+            tracing::warn!("{e}");
+        }
     }
     let input = Input::new(&vr, dirs)
         .map_err(|e| tracing::warn!("input actions: {e}; pointer disabled"))
@@ -252,7 +288,12 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let started = Instant::now();
     let mut meter = IntensityMeter::new(app.profile.height_cm);
     let mut tracker = Tracker::new();
-    let mut scene = (HOME_KEY.to_owned(), HOME_NAME.to_owned());
+    let home = if steamvr.is_some() {
+        (HOME_KEY, HOME_NAME)
+    } else {
+        (XR_GAME_KEY, XR_GAME_NAME)
+    };
+    let mut scene = (home.0.to_owned(), home.1.to_owned());
     let (mut last_sec, mut last_watch_frame) = (0i64, Instant::now() - WATCH_MIN_FRAME);
     let mut look = Look {
         shown_alpha: -1.0,
@@ -351,10 +392,9 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
                 neighbour = theirs;
             }
             if scene_dirty || now % 5 == 0 {
-                scene = vr
-                    .apps()
-                    .scene_app()
-                    .unwrap_or_else(|| (HOME_KEY.to_owned(), HOME_NAME.to_owned()));
+                scene = steamvr
+                    .and_then(Apps::scene_app)
+                    .unwrap_or_else(|| (home.0.to_owned(), home.1.to_owned()));
                 scene_dirty = false;
                 app.game.clone_from(&scene.1);
                 if let Err(e) = app.store.set_app_name(&scene.0, &scene.1) {
@@ -699,6 +739,11 @@ struct Textures(Option<Gpu>);
 
 impl Textures {
     fn new(vr: &Vr) -> Self {
+        // OpenXR: the session has textures of its own, filled through `set_raw`.
+        #[cfg(target_os = "linux")]
+        if vr.is_openxr() {
+            return Self(None);
+        }
         let gpu = vr.gpu().and_then(|mut g| {
             g.add_texture(WATCH_PX.0, WATCH_PX.1)?;
             g.add_texture(PANEL_PX.0, PANEL_PX.1)?;
@@ -828,9 +873,11 @@ impl Applied {
         let p = &app.profile;
         if self.auto_start != p.auto_start {
             self.auto_start = p.auto_start;
-            match vr.apps().set_auto_launch(setup::APP_KEY, p.auto_start) {
-                Ok(()) => tracing::info!("start with SteamVR: {}", p.auto_start),
-                Err(e) => tracing::warn!("{e}"),
+            if let Some(apps) = vr.apps() {
+                match apps.set_auto_launch(setup::APP_KEY, p.auto_start) {
+                    Ok(()) => tracing::info!("start with SteamVR: {}", p.auto_start),
+                    Err(e) => tracing::warn!("{e}"),
+                }
             }
         }
         if self.hr_device != p.hr_device {

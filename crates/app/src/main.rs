@@ -4,6 +4,7 @@
 //! One binary, three jobs:
 //!   sweatxr                  desktop window (and tray icon on Windows)
 //!   sweatxr --overlay        the in-VR watch and panel; SteamVR starts this via the .vrmanifest
+//!                            (on Linux with Monado or WiVRn, started by hand: see `overlay::connect`)
 //!   sweatxr --register       register with SteamVR (auto-start follows the setting)
 //!   sweatxr --uninstall      off SteamVR's list, data deleted (exports stay); see `uninstall`
 //! Overlay options: --fake-hr (scripted strap), --record FILE (pose trace), --exit-after SECS,

@@ -40,8 +40,8 @@
             platforms = builtins.attrNames assets;
             mainProgram = "sweatxr";
           };
-          # The release as published, with its libraries pointed at the Nix store. The window system and Vulkan
-          # libraries are loaded at run time, so they go on the library path too.
+          # The release as published, with its libraries pointed at the Nix store. The window system, Vulkan and
+          # OpenXR (Monado, WiVRn) libraries are loaded at run time, so they go on the library path too.
           app = pkgs.stdenv.mkDerivation {
             pname = "sweatxr-app";
             inherit version meta;
@@ -59,6 +59,7 @@
               pkgs.libxkbcommon
               pkgs.wayland
               pkgs.vulkan-loader
+              pkgs.openxr-loader
               pkgs.libGL
               (pkgs.libx11 or pkgs.xorg.libX11)
               (pkgs.libxcursor or pkgs.xorg.libXcursor)

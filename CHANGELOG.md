@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+- Linux without SteamVR: SweatXR runs as an OpenXR overlay on Monado and WiVRn (experimental). Start the runtime,
+  then `sweatxr --overlay`. The watch, the panel, the pointer, the grip and haptics work through OpenXR. Every game
+  counts as "VR game", the game still sees the trigger, the watch does not move aside for WristXR's, and SweatXR
+  does not start with the runtime. SteamVR stays first when it runs; `SWEATXR_OPENXR=1` skips it.
+
 ### Changed
 - Quitting lets the heart rate strap go, so a phone or watch can connect to it at once.
 - With Bluetooth switched off, the strap status says "Bluetooth is off" instead of "Connecting…".
@@ -14,7 +20,8 @@ All notable changes to this project are documented here. Format based on
 - Linux: the window gives its app id, so Wayland docks show SweatXR's name and icon.
 - Linux: GNOME's and KDE's reduce-animations settings are followed, as Windows' already was.
 - Nix: the `sweatxr` command keeps its files from garbage collection, so the start with SteamVR keeps working.
-- README: what to do when the watch doesn't come with SteamVR, and that Monado and WiVRn aren't supported yet.
+- README: what to do when the watch doesn't come with SteamVR, and how to run SweatXR on Monado and WiVRn.
+- Linux: without SteamVR installed, the desktop window says how to start SweatXR on Monado or WiVRn.
 
 ## [0.7.1] - 2026-11-23
 

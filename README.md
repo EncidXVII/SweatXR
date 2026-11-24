@@ -68,7 +68,8 @@ It keeps history per day and per game, and your data never leaves your computer.
 
 Anything that runs SteamVR: Valve Index, Steam Frame (experimental, natively on the headset, arm64), HTC Vive,
 Pimax, Bigscreen Beyond, Windows Mixed Reality, and Meta Quest through Steam Link, Virtual
-Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are not tracked.
+Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are not tracked. On Linux, Monado and
+WiVRn work too, as an experimental OpenXR overlay (see below).
 
 ## Install in 3 steps
 
@@ -88,7 +89,13 @@ Desktop or a Link cable. Standalone Quest apps do not run SteamVR, so they are n
 **If the watch doesn't come with SteamVR:** open SweatXR while SteamVR runs, and the watch appears at once. An
 [issue](https://github.com/EncidXVII/SweatXR/issues/new) with your system helps fix the start with SteamVR there.
 
-**Monado or WiVRn instead of SteamVR:** not supported yet. SweatXR is a SteamVR overlay, so it needs SteamVR running.
+**Monado or WiVRn (no SteamVR):** start the runtime, then run `sweatxr --overlay` (or the `.AppImage` with
+`--overlay`). SweatXR uses SteamVR when it is running and otherwise shows itself as an OpenXR overlay, on top of the
+game. With SteamVR installed but not in use, start it with `SWEATXR_OPENXR=1 sweatxr --overlay`. Experimental: the
+watch, panel, pointer and haptics work, but every game counts as "VR game" (OpenXR does not say which one is
+running), SweatXR cannot keep the trigger from the game while you point at the watch, the watch does not move aside
+for WristXR's, and it does not start with the runtime on its own. Where the runtime cannot fade layers, the watch
+stays at full brightness instead of dimming.
 
 **Uninstall:** quit SweatXR (Windows: tray icon > Quit; Linux: close its window) and SteamVR, then run
 `Uninstall SweatXR.cmd` in its folder (Windows) or `./uninstall.sh` (Linux; or `sweatxr --uninstall`). It takes
@@ -140,7 +147,7 @@ SweatXR is in early access (0.7). Where each part stands, and what moves it forw
 | Area | Where it stands | What helps |
 |---|---|---|
 | **Calorie accuracy** | The numbers are estimates. The target is within about 20% of a fitness watch with a heart rate strap and about 35% without one | An [accuracy report](https://github.com/EncidXVII/SweatXR/issues/new/choose): 10 minutes of play with a strap and a fitness watch running, then both numbers. Rhythm, boxing and slow games all help |
-| **Linux and Steam Frame (arm64)** | Experimental, requires more testing | Install it, play a session and say what worked: the watch, the panel, Bluetooth heart rate, start with SteamVR |
+| **Linux and Steam Frame (arm64)** | Experimental, requires more testing | Install it, play a session and say what worked: the watch, the panel, Bluetooth heart rate, start with SteamVR, or Monado and WiVRn |
 | **Controllers** | The watch sits on the back of the wrist | Tell us how it sits on yours: Index, Touch, Steam Frame, Vive |
 | **Heart rate straps** | Any strap, armband or watch with the standard Bluetooth LE heart rate service pairs | Name the strap you paired, working or not |
 | **Not a medical device** | A fitness estimate for play, not a measurement | Nothing: it stays that way |
@@ -188,7 +195,8 @@ cargo build --release -p sweatxr
 ```
 
 Linux needs `libdbus-1-dev pkg-config libxkbcommon-dev libfontconfig1-dev`. No OpenVR SDK is
-needed: the runtime is loaded from your SteamVR install at start. See
+needed: the runtime is loaded from your SteamVR install at start (and the OpenXR loader from the system, for Monado
+and WiVRn). See
 [CONTRIBUTING.md](CONTRIBUTING.md) for tests, snapshots and the headset-free smoke test.
 
 ## Contributing

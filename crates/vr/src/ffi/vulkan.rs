@@ -50,7 +50,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub(super) fn new(
+    pub(crate) fn new(
         instance_ext: &[CString],
         output_device: impl FnOnce(*mut c_void) -> u64,
         device_ext: impl FnOnce(*mut c_void) -> Vec<CString>,
@@ -385,6 +385,134 @@ impl Gpu {
             format: FORMAT.as_raw() as u32,
             sample_count: 1,
         })
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Gpu {
+    /// Raw handles for an OpenXR session on this device: instance, physical device, device, queue family.
+    pub(crate) fn handles(&self) -> (u64, u64, u64, u32) {
+        (
+            self.instance.handle().as_raw(),
+            self.physical.as_raw(),
+            self.device.handle().as_raw(),
+            self.family,
+        )
+    }
+
+    /// OpenXR: copies `rgba` (the slot's size) through the slot's staging buffer straight into `dst`, an acquired
+    /// swapchain image of that size, and waits for the copy. The image is handed back in
+    /// COLOR_ATTACHMENT_OPTIMAL, as OpenXR wants it. `bgra` swaps red and blue on the way, for a runtime that offers
+    /// only BGRA swapchains.
+    pub(crate) fn fill(&mut self, slot: usize, rgba: &[u8], dst: u64, bgra: bool) -> Result<(), VrError> {
+        let s = self.slots.get_mut(slot).ok_or(VrError {
+            call: "fill",
+            code: 0,
+            detail: "no such texture".into(),
+        })?;
+        if rgba.len() != (s.width * s.height * 4) as usize {
+            return Err(VrError {
+                call: "fill",
+                code: 0,
+                detail: "buffer size".into(),
+            });
+        }
+        let d = &self.device;
+        let dst = vk::Image::from_raw(dst);
+        // SAFETY: as in `upload`: the fence wait comes before the staging memory is written, and `mapped` covers
+        // exactly width * height * 4 bytes. `dst` stays acquired until this returns.
+        unsafe {
+            d.wait_for_fences(&[s.fence], true, GPU_WAIT_NS)
+                .map_err(vk_err("vkWaitForFences"))?;
+            if bgra {
+                let out = std::slice::from_raw_parts_mut(s.mapped, rgba.len());
+                for (o, i) in out.as_chunks_mut::<4>().0.iter_mut().zip(rgba.as_chunks::<4>().0) {
+                    *o = [i[2], i[1], i[0], i[3]];
+                }
+            } else {
+                std::ptr::copy_nonoverlapping(rgba.as_ptr(), s.mapped, rgba.len());
+            }
+            d.begin_command_buffer(
+                s.cmd,
+                &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
+            )
+            .map_err(vk_err("vkBeginCommandBuffer"))?;
+            let range = vk::ImageSubresourceRange::default()
+                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                .level_count(1)
+                .layer_count(1);
+            let barrier = |from, to, src, dst_access| {
+                vk::ImageMemoryBarrier::default()
+                    .old_layout(from)
+                    .new_layout(to)
+                    .src_access_mask(src)
+                    .dst_access_mask(dst_access)
+                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .image(dst)
+                    .subresource_range(range)
+            };
+            // Every pixel is written, so what the image held before does not matter.
+            d.cmd_pipeline_barrier(
+                s.cmd,
+                vk::PipelineStageFlags::ALL_COMMANDS,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier(
+                    vk::ImageLayout::UNDEFINED,
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    vk::AccessFlags::empty(),
+                    vk::AccessFlags::TRANSFER_WRITE,
+                )],
+            );
+            let region = vk::BufferImageCopy::default()
+                .image_subresource(
+                    vk::ImageSubresourceLayers::default()
+                        .aspect_mask(vk::ImageAspectFlags::COLOR)
+                        .layer_count(1),
+                )
+                .image_extent(vk::Extent3D {
+                    width: s.width,
+                    height: s.height,
+                    depth: 1,
+                });
+            d.cmd_copy_buffer_to_image(
+                s.cmd,
+                s.staging,
+                dst,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[region],
+            );
+            d.cmd_pipeline_barrier(
+                s.cmd,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::ALL_COMMANDS,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier(
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                    vk::AccessFlags::TRANSFER_WRITE,
+                    vk::AccessFlags::MEMORY_READ,
+                )],
+            );
+            d.end_command_buffer(s.cmd)
+                .map_err(vk_err("vkEndCommandBuffer"))?;
+            let cmds = [s.cmd];
+            d.reset_fences(&[s.fence]).map_err(vk_err("vkResetFences"))?;
+            d.queue_submit(
+                self.queue,
+                &[vk::SubmitInfo::default().command_buffers(&cmds)],
+                s.fence,
+            )
+            .map_err(vk_err("vkQueueSubmit"))?;
+            d.wait_for_fences(&[s.fence], true, GPU_WAIT_NS)
+                .map_err(vk_err("vkWaitForFences"))?;
+        }
+        Ok(())
     }
 }
 

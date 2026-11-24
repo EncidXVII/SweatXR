@@ -1,6 +1,6 @@
 [package]
 name = "sweatxr-vr"
-description = "Thin OpenVR binding (overlay, poses, input, applications) and watch/panel geometry"
+description = "Thin OpenVR binding (overlay, poses, input, applications), an OpenXR overlay backend on Linux, and watch/panel geometry"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,3 +11,8 @@ publish = false
 sweatxr-core.workspace = true
 serde_json.workspace = true
 ash.workspace = true
+
+# Linux without SteamVR: Monado and WiVRn through OpenXR's overlay extension; the loader is opened at run time.
+[target.'cfg(target_os = "linux")'.dependencies]
+openxr = { version = "0.22", default-features = false, features = ["loaded"] }
+tracing.workspace = true

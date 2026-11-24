@@ -3,7 +3,8 @@
 
 //! Thin binding over the OpenVR flat C API. The runtime is loaded at run time (the
 //! `openvr_api` library next to the exe, else the one inside the SteamVR install), so the build
-//! needs no SDK and the app starts fine without SteamVR. All `unsafe` in this crate lives here.
+//! needs no SDK and the app starts fine without SteamVR. All `unsafe` in this crate lives here and, on Linux, in
+//! the OpenXR backend (`xr`).
 
 mod tables;
 mod vulkan;
@@ -698,9 +699,10 @@ impl Vr {
         }
     }
 
-    /// The application half of this connection (registering, scene app, launching).
-    pub fn apps(&self) -> &Apps {
-        &self.apps
+    /// The application half of this connection (registering, scene app, launching). Always there on SteamVR; an
+    /// OpenXR runtime has none (see `Vr` on Linux).
+    pub fn apps(&self) -> Option<&Apps> {
+        Some(&self.apps)
     }
 
     pub fn poses(&self) -> Box<[TrackedDevicePose; MAX_DEVICES]> {
