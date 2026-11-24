@@ -11,7 +11,8 @@ _repo="https://github.com/EncidXVII/SweatXR"
 license=('GPL-3.0-only')
 depends=('fontconfig' 'dbus' 'gcc-libs' 'libxkbcommon' 'wayland' 'vulkan-icd-loader' 'libx11' 'libxcursor' 'libxi' 'libxcb' 'hicolor-icon-theme')
 optdepends=('steam: SteamVR'
-            'bluez: a Bluetooth LE heart rate strap')
+            'bluez: a Bluetooth LE heart rate strap'
+            'openxr: Monado or WiVRn instead of SteamVR (experimental)')
 provides=('sweatxr')
 conflicts=('sweatxr')
 source=("sweatxr.desktop::$_repo/raw/v$pkgver/packaging/sweatxr.desktop"
