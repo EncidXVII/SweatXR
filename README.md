@@ -13,8 +13,8 @@ It keeps history per day and per game, and your data never leaves your computer.
 [![Latest release](https://img.shields.io/github/v/release/EncidXVII/SweatXR?include_prereleases&label=download)](https://github.com/EncidXVII/SweatXR/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/EncidXVII/SweatXR/total?label=downloads)](https://github.com/EncidXVII/SweatXR/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
-![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Steam%20Frame%20(experimental)-informational)
-![Written in Rust](https://img.shields.io/badge/written%20in-Rust-orange)
+![Platforms: Windows, Linux, Steam Frame (experimental)](https://img.shields.io/badge/Windows%20%7C%20Linux%20%7C%20Steam%20Frame%20(experimental)-informational)
+![Written in Rust](https://img.shields.io/badge/Rust-orange?logo=rust&logoColor=white)
 
 <p>
   <img src="crates/ui/tests/snapshots/snapshots__watch.snap.png" width="320" alt="SweatXR wrist watch overlay in SteamVR: goal ring marked DONE, 321 kcal burned, 40 active minutes, heart rate 142 bpm">
