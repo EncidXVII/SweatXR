@@ -4,7 +4,7 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0] - 2026-11-24
 
 ### Added
 - Linux without SteamVR: SweatXR runs as an OpenXR overlay on Monado and WiVRn (experimental). Start the runtime,
@@ -22,6 +22,8 @@ All notable changes to this project are documented here. Format based on
 - Nix: the `sweatxr` command keeps its files from garbage collection, so the start with SteamVR keeps working.
 - README: what to do when the watch doesn't come with SteamVR, and how to run SweatXR on Monado and WiVRn.
 - Linux: without SteamVR installed, the desktop window says how to start SweatXR on Monado or WiVRn.
+- Nix: the 0.7.1 file hashes match the release files as published, so `nix run` works again.
+- The Arch Linux PKGBUILD lists `openxr` as optional, for Monado and WiVRn.
 
 ## [0.7.1] - 2026-11-23
 
