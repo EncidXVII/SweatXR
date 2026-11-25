@@ -214,6 +214,22 @@ If SweatXR helps you, a star helps other VR players find it.
 Maintainer contact: open an issue, or for private matters email [mykola@everyvr.net](mailto:mykola@everyvr.net). Security
 problems: see [SECURITY.md](SECURITY.md).
 
+## How it compares
+
+Other ways to track calories and heart rate in VR, checked 25 November 2026:
+
+| Tool | Price | Where it counts | Account | State |
+|---|---|---|---|---|
+| **SweatXR** | Free, GPL-3.0 | Every SteamVR game | None; data stays on your PC | Early access |
+| [YUR](https://store.steampowered.com/app/1188920) | Free | Every SteamVR game, Windows only | Email account, cloud | Last Steam news August 2022 |
+| Meta Quest Move | Was free | Quest apps | Meta account | Discontinued 31 March 2025 |
+| PowerBeatsVR | Paid | Inside PowerBeatsVR | | A game with its own counter |
+| Pulsoid, HypeRate | Free tiers | Heart rate for streams and VRChat avatars | Account | Active |
+
+YUR counted across every game with a cloud account; Quest Move did on Quest until Meta ended it. Pulsoid and
+HypeRate are made for showing heart rate on stream or on an avatar. SweatXR counts calories in every SteamVR game on
+a wrist watch, keeps a history per game, and needs no account.
+
 ## More PC VR tools from the same author
 
 Four free, open-source tools for PC VR by [EncidXVII](https://github.com/EncidXVII), with one look and one way of working. Guides, downloads and news for all four: [everyvr.net](https://everyvr.net).
