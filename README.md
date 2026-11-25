@@ -45,7 +45,7 @@ It keeps history per day and per game, and your data never leaves your computer.
 | **Heart rate** | Optional: any Bluetooth LE chest strap or armband with the standard heart rate service; without one it estimates from head and hand movement |
 | **Privacy** | Everything stays in one file on your computer. No account, no cloud, no network access |
 | **Price** | Free. No subscription |
-| **Status** | Early access (0.7): calorie numbers are estimates; the Linux and Steam Frame builds are experimental |
+| **Status** | Early access (0.8): calorie numbers are estimates; the Linux and Steam Frame builds are experimental |
 | **License** | Open source, `GPL-3.0-only`, © 2026 EncidXVII |
 
 ## Features
@@ -143,7 +143,7 @@ All numbers are estimates.
 
 ## Status and help wanted
 
-SweatXR is in early access (0.7). Where each part stands, and what moves it forward:
+SweatXR is in early access (0.8). Where each part stands, and what moves it forward:
 
 | Area | Where it stands | What helps |
 |---|---|---|
