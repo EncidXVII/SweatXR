@@ -5,7 +5,7 @@
 
 # SweatXR: free VR fitness and calorie tracker for every SteamVR game
 
-**A free, open-source calorie counter and heart rate watch for SteamVR.** Glance at your wrist
+**A free, open-source VR fitness tracker for SteamVR, with a calorie counter and heart rate watch.** Glance at your wrist
 in any VR game to see calories burned, active minutes, heart rate and your daily goal ring.
 It keeps history per day and per game, and your data never leaves your computer.
 
@@ -30,7 +30,7 @@ It keeps history per day and per game, and your data never leaves your computer.
 · [All downloads](https://github.com/EncidXVII/SweatXR/releases/latest)
 · [Guides and help on everyvr.net](https://everyvr.net/sweatxr) · [Discord](https://discord.gg/WkzGQwu2kz)
 
-> **Status: early access (0.7).** Calorie numbers are estimates and this is not a medical device.
+> **Status: early access (0.8).** Calorie numbers are estimates and this is not a medical device.
 > The Linux and Steam Frame builds are experimental. Comparisons against your fitness watch help
 > most: see [Status and help wanted](#status-and-help-wanted).
 
