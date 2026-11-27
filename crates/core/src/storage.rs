@@ -130,10 +130,12 @@ impl Store {
         day_of(ts, (self.tz)(ts))
     }
 
-    /// First second of a local day. Uses the offset at noon so night-time DST changes are handled.
+    /// First second of a local day. Uses the offset in force at local midnight, so the day a clock change falls
+    /// on starts at the right hour too.
     pub fn day_start(&self, day: Day) -> i64 {
         let midnight_utc = i64::from(day) * 86_400;
-        midnight_utc - i64::from((self.tz)(midnight_utc + 43_200))
+        let guess = midnight_utc - i64::from((self.tz)(midnight_utc));
+        midnight_utc - i64::from((self.tz)(guess))
     }
 
     pub fn profile(&self) -> Result<Profile> {
@@ -215,6 +217,23 @@ impl Store {
                     open = Some(tx.last_insert_rowid());
                 }
                 Event::Sample(s) => {
+                    // History deleted in the middle of a session (here, or from the other window while the watch
+                    // tracks): what follows gets a session of its own, or it would count for the day and show on no
+                    // session.
+                    let live = match open {
+                        Some(id) => tx
+                            .query_row("SELECT 1 FROM sessions WHERE id = ?1", [id], |_| Ok(()))
+                            .optional()?
+                            .is_some(),
+                        None => false,
+                    };
+                    if !live {
+                        tx.execute(
+                            "INSERT INTO sessions (app_key, start, end) VALUES (?1, ?2, ?2)",
+                            params![s.app_key, s.ts],
+                        )?;
+                        open = Some(tx.last_insert_rowid());
+                    }
                     tx.execute(
                         "INSERT OR REPLACE INTO samples VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                         params![s.ts, open, s.app_key, s.intensity, s.met, s.hr, s.kcal],

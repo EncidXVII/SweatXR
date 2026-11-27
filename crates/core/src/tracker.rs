@@ -120,7 +120,8 @@ impl Tracker {
         if minute != self.minute {
             (self.minute, self.active_secs, self.counted) = (minute, 0, false);
         }
-        if met >= ACTIVE_MET {
+        // A raised heart rate while standing still (a menu, the idle tail of a session) is not an active second.
+        if met >= ACTIVE_MET && motion_met >= MOTION_MET {
             self.active_secs += 1;
             if self.active_secs >= ACTIVE_SECS_PER_MIN && !self.counted {
                 self.counted = true;
