@@ -5,8 +5,8 @@ title: "SweatXR: a VR fitness tracker for every SteamVR game"
 abstract: "Free, open-source SteamVR overlay that estimates calories burned, active minutes and heart rate zones across VR games, from Bluetooth LE heart rate or head and hand motion."
 authors:
   - alias: EncidXVII
-version: 0.8.0
-date-released: 2026-11-24
+version: 0.8.1
+date-released: 2026-11-28
 license: GPL-3.0-only
 repository-code: "https://github.com/EncidXVII/SweatXR"
 url: "https://everyvr.net/sweatxr"

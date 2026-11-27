@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-11-28
+
+### Fixed
+- With a heart rate strap, standing still with a raised heart rate (a menu, the minutes after a song) no longer
+  counts as active minutes: an active second needs movement too.
+- On the day the clocks change, the day starts at local midnight. It started an hour off, so a session near
+  midnight showed under the wrong day on the Sessions page and in the day's TCX file.
+- Deleting history in the middle of a session: what you do next gets a session of its own. It counted for the day
+  but showed on no session.
+
 ## [0.8.0] - 2026-11-24
 
 ### Added
