@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.2] - 2026-11-28
+
+### Changed
+- Windows: the tray icon belongs to the watch. It is there whenever the watch runs in VR, also when SteamVR
+  started it and no window is open. A click opens the window; the menu has Start with SteamVR and Quit, which
+  stops the watch. The window alone no longer adds an icon.
+- Opening SweatXR while SteamVR runs starts the watch, also with Start with SteamVR switched off.
+
+### Fixed
+- Opening SweatXR with SteamVR already running did not start the watch: SteamVR counted the window's own helper
+  as the watch. The watch only came with the next SteamVR start.
+- The watch no longer twitches on a fast-moving hand. It was hung on the wrist again, a few millimetres off, each
+  time the hand moved quickly.
+
 ## [0.8.1] - 2026-11-28
 
 ### Fixed
