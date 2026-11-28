@@ -24,6 +24,7 @@ What search engines and assistants read first is the repository's own page, so i
    your own account, with the changelog section as the notes:
    `gh run download <run id> -D assets`, then
    `gh release create vX.Y.Z assets/*/* --title "SweatXR X.Y.Z" --notes-file notes.md`.
-5. Check the README's download links and the app's update check against the new release.
+5. Check the README's download links against the new release, and that Settings > About > Check for updates opens
+   the download page with it (SweatXR never looks for a new version itself).
 6. In `flake.nix`, set `version` and each Linux file's `hash` (its `.sha256` in SRI form: `nix hash convert --hash-algo
    sha256 <hex>`), then push: the Nix workflow builds it.
