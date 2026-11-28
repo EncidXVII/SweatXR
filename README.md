@@ -116,7 +116,9 @@ Then delete the folder.
   wrist and tilts as the hand turns. Let go and it stays there; let go on its usual spot and it is back on it.
   The panel moves the same way: grip it and carry it; it keeps facing you and stays where you let go.
 - **Desktop:** `sweatxr` opens Today, History (step back through past weeks and months), Sessions
-  (each session with its own export) and Settings. On Windows it sits in the tray.
+  (each session with its own export) and Settings. With SteamVR running, opening it also starts the watch.
+- **Tray icon (Windows):** there while the watch runs in VR. Click it for the window; right-click for
+  Start with SteamVR and Quit, which stops the watch until SteamVR or you start it again.
 - **Heart rate:** Settings > Device > Scan, then pick your strap. Choosing it on the desktop
   saves the choice; the VR overlay connects.
 - **Export:** TCX and CSV files go to `Documents/SweatXR`.

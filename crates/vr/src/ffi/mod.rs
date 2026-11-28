@@ -277,9 +277,15 @@ mod os {
                     more = Process32NextW(snap, &mut e) != 0;
                 }
                 CloseHandle(snap);
-                let handle = OpenProcess(SYNCHRONIZE, 0, pid?);
-                (!handle.is_null()).then_some(Self(handle))
+                Self::open(pid?)
             }
+        }
+
+        /// The process with this id, if there is one.
+        pub fn open(pid: u32) -> Option<Self> {
+            // SAFETY: plain value call; the handle is owned by the returned value.
+            let handle = unsafe { OpenProcess(SYNCHRONIZE, 0, pid) };
+            (!handle.is_null()).then_some(Self(handle))
         }
 
         pub fn alive(&self) -> bool {
@@ -354,6 +360,11 @@ mod os {
                 })
                 .find(|p| std::fs::read_to_string(p.join("comm")).is_ok_and(|c| c.trim_end() == exe))
                 .map(Self)
+        }
+
+        pub fn open(pid: u32) -> Option<Self> {
+            let p = Self(std::path::PathBuf::from(format!("/proc/{pid}")));
+            p.alive().then_some(p)
         }
 
         pub fn alive(&self) -> bool {
@@ -588,19 +599,24 @@ impl Apps {
         })
     }
 
-    /// Whether SteamVR reports a process for this app key.
+    /// Whether this app's process is there, other than the one asking. SteamVR takes any process started from the
+    /// app's executable for the app, this one included, and goes on naming one that was ended without telling it
+    /// (Task Manager, a crash), so the process itself is looked up too.
     pub fn running(&self, key: &str) -> bool {
         // SAFETY: valid C string; plain value call.
-        cstr("GetApplicationProcessId", key)
-            .is_ok_and(|k| unsafe { (self.t.GetApplicationProcessId)(k.as_ptr()) } != 0)
+        let pid = cstr("GetApplicationProcessId", key)
+            .map_or(0, |k| unsafe { (self.t.GetApplicationProcessId)(k.as_ptr()) });
+        pid != 0 && pid != std::process::id() && os::Process::open(pid).is_some_and(|p| p.alive())
     }
 
-    /// Asks SteamVR to start a registered app now.
-    pub fn launch(&self, key: &str) -> Result<(), VrError> {
+    /// Asks SteamVR to start a registered app now. False when SteamVR holds it for running or starting already
+    /// and so started nothing.
+    pub fn launch(&self, key: &str) -> Result<bool, VrError> {
         let k = cstr("LaunchApplication", key)?;
         // SAFETY: valid C string.
         match unsafe { (self.t.LaunchApplication)(k.as_ptr()) } {
-            0 | ERR_APP_ALREADY_RUNNING | ERR_APP_ALREADY_STARTING => Ok(()),
+            0 => Ok(true),
+            ERR_APP_ALREADY_RUNNING | ERR_APP_ALREADY_STARTING => Ok(false),
             code => Err(err("LaunchApplication", code)),
         }
     }

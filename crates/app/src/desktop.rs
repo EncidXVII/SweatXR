@@ -47,13 +47,10 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     wire(&ui.global::<AppState>(), &queue);
     app.borrow().show(&ui.global::<AppState>(), now_unix());
 
-    register();
+    // Opening SweatXR while SteamVR runs starts the watch, also with "Start with SteamVR" off.
+    register(true);
     let mut applied_auto_start = app.borrow().profile.auto_start;
 
-    #[cfg(windows)]
-    let mut tray = crate::tray::Tray::new()
-        .map_err(|e| tracing::warn!("tray: {e}"))
-        .ok();
     // Closing the window quits: tracking runs in the VR overlay, not here, so nothing is lost, and
     // no SweatXR is left running unseen (the event loop would otherwise outlive the window).
     {
@@ -83,14 +80,7 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
         // SteamVR is running), not the next time the overlay happens to run.
         if app.profile.auto_start != applied_auto_start {
             applied_auto_start = app.profile.auto_start;
-            register();
-        }
-        #[cfg(windows)]
-        if tray.as_mut().is_some_and(|t| t.poll(&ui)) {
-            // Quit: the icon goes first, then the window and the loop.
-            tray = None;
-            let _ = ui.hide();
-            let _ = slint::quit_event_loop();
+            register(false);
         }
     });
 
@@ -105,10 +95,16 @@ pub fn run(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
 }
 
 /// Registers the overlay with SteamVR and applies "Start with SteamVR" (`sweatxr --register`, in its
-/// own process: SteamVR's API lets one connection per process). Harmless when SteamVR is off.
-fn register() {
+/// own process: SteamVR's API lets one connection per process). With `start`, a running SteamVR gets the
+/// watch now whatever that setting says. Harmless when SteamVR is off.
+fn register(start: bool) {
     let Ok(exe) = std::env::current_exe() else { return };
-    match std::process::Command::new(exe).arg("--register").spawn() {
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("--register");
+    if start {
+        cmd.arg("--start");
+    }
+    match cmd.spawn() {
         // Waited for off the UI thread, so the finished child is not left behind as a zombie on Linux.
         Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
         Err(e) => tracing::warn!("register: {e}"),

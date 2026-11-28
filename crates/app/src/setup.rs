@@ -153,8 +153,9 @@ pub fn register(apps: &Apps, dirs: &Dirs, auto_start: bool) -> Result<(), Box<dy
 
 /// `sweatxr --register`, spawned by the desktop app. Registers the overlay with SteamVR so it
 /// starts with it. If SteamVR is already running and auto-start is on, also starts the overlay
-/// now, so nobody has to restart SteamVR after installing.
-pub fn register_utility(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
+/// now, so nobody has to restart SteamVR after installing. With `start` (the window was just
+/// opened) it starts the overlay with auto-start off too: that is how the watch is started by hand.
+pub fn register_utility(dirs: &Dirs, start: bool) -> Result<(), Box<dyn Error>> {
     let auto_start = sweatxr_core::storage::Store::open(&dirs.db())?
         .profile()?
         .auto_start;
@@ -162,13 +163,20 @@ pub fn register_utility(dirs: &Dirs) -> Result<(), Box<dyn Error>> {
     match Apps::init(AppKind::Background) {
         Ok(apps) => {
             register(&apps, dirs, auto_start)?;
-            if !auto_start {
+            if !auto_start && !start {
                 tracing::info!("registered with SteamVR; auto-start is off, overlay not started");
             } else if apps.running(APP_KEY) {
                 tracing::info!("registered with SteamVR; overlay already running");
-            } else {
-                apps.launch(APP_KEY)?;
+            } else if apps.launch(APP_KEY)? {
                 tracing::info!("registered with SteamVR and started the overlay");
+            } else {
+                // SteamVR still counts an overlay that was ended behind its back, and starts no second one.
+                std::process::Command::new(std::env::current_exe()?)
+                    .arg("--overlay")
+                    .spawn()?;
+                tracing::info!(
+                    "registered with SteamVR; it held the overlay for running, so started it here"
+                );
             }
         }
         Err(e) if e.code == ERR_NO_SERVER => {

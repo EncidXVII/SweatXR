@@ -63,6 +63,10 @@ const WATCH_CARD_PX: f32 = 232.0;
 const PANEL_PX: (u32, u32) = (800, 600);
 /// A tracked pointing controller whose trigger has not reached us this long gets the actions loaded again (once).
 const UNBOUND_RELOAD: Duration = Duration::from_secs(3);
+/// A tip measured somewhere else than the one the watch hangs by is taken only once it has stayed there this many
+/// frames (about a third of a second). Another controller model gives a new tip that holds still; a fast hand
+/// gives one that is somewhere else every frame.
+const TIP_SETTLE_FRAMES: u32 = 30;
 
 #[derive(Clone, Copy)]
 enum Buzz {
@@ -131,6 +135,8 @@ struct Look {
     attached_to: Option<u32>,
     /// Tip pose in the device's frame the watch was attached with.
     tip_offset: Option<Mat>,
+    /// A tip measured away from `tip_offset`, and for how many frames it has stayed put.
+    tip_new: Option<(Mat, u32)>,
     /// Hand the watch was attached for (its text runs the other way on the other hand).
     hand: Option<Hand>,
     /// Its spot on the wrist it was attached with (the default one, or where the player put it).
@@ -235,6 +241,11 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             tracing::warn!("{e}");
         }
     }
+    // Without it the watch still runs; the Setup page in VR and SteamVR's own list are then the way to stop it.
+    #[cfg(windows)]
+    let mut tray = crate::tray::Tray::new(app.profile.auto_start)
+        .map_err(|e| tracing::warn!("tray: {e}"))
+        .ok();
     let input = Input::new(&vr, dirs)
         .map_err(|e| tracing::warn!("input actions: {e}; pointer disabled"))
         .ok();
@@ -341,6 +352,17 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             tracing::info!("SteamVR's server is gone; leaving");
             break 'main;
         }
+        #[cfg(windows)]
+        while let Some(cmd) = tray.as_mut().and_then(crate::tray::Tray::poll) {
+            match cmd {
+                crate::tray::Cmd::Open => crate::tray::open_window(),
+                crate::tray::Cmd::AutoStart(on) => app.set_auto_start(on),
+                crate::tray::Cmd::Quit => {
+                    tracing::info!("quit from the tray icon");
+                    break 'main;
+                }
+            }
+        }
         let hand = app.profile.watch_hand;
         // The watch's spot on this wrist: where the grip holds it, else where the player left it, else the default
         // (beside WristXR's watch when that is on this wrist too).
@@ -411,6 +433,10 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
             }
             // Picks up the desktop window's edits.
             app.reload_profile();
+            #[cfg(windows)]
+            if let Some(t) = &tray {
+                t.set_autostart(app.profile.auto_start);
+            }
             meter.set_height(app.profile.height_cm);
             app.show(&watch.ui.global::<AppState>(), now);
             if panel_open {
@@ -798,19 +824,33 @@ fn place_watch(vr: &Vr, ov: u64, look: &mut Look, wrist: Wrist, head: Option<&Ma
         (Some(raw), Some(tip)) => Some(compose(&inverse(raw), tip)),
         _ => None,
     };
-    let moved = match (offset, look.tip_offset) {
-        (Some(a), Some(b)) => distance(position(&a), position(&b)) > 0.005,
-        (a, b) => a.is_some() != b.is_some(),
+    // The raw pose and the tip are not read at the same instant, so on a fast hand the measured tip wanders by
+    // more than the 5 mm that used to re-hang the watch, at a wrong offset each time: the watch twitched as the
+    // hand moved. Now a different tip must hold still first, and a re-hang for another reason keeps the known one.
+    let fresh = wrist.device != look.attached_to || offset.is_some() != look.tip_offset.is_some();
+    let settled = match (offset, look.tip_offset) {
+        (Some(a), Some(b)) if !fresh && distance(position(&a), position(&b)) > 0.005 => {
+            let (first, frames) = match look.tip_new {
+                Some((c, n)) if distance(position(&a), position(&c)) <= 0.002 => (c, n + 1),
+                _ => (a, 0),
+            };
+            look.tip_new = Some((first, frames));
+            frames >= TIP_SETTLE_FRAMES
+        }
+        _ => {
+            look.tip_new = None;
+            false
+        }
     };
-    if wrist.device != look.attached_to
-        || look.hand != Some(wrist.hand)
-        || look.spot != Some(*wrist.spot)
-        || moved
-    {
+    if fresh || settled || look.hand != Some(wrist.hand) || look.spot != Some(*wrist.spot) {
         look.attached_to = wrist.device;
         look.hand = Some(wrist.hand);
         look.spot = Some(*wrist.spot);
-        look.tip_offset = offset;
+        if fresh || settled {
+            look.tip_offset = offset;
+            look.tip_new = None;
+        }
+        let offset = look.tip_offset;
         let identity = Mat {
             m: [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
         };

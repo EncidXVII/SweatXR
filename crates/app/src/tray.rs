@@ -1,15 +1,14 @@
 // Copyright (C) 2026 EncidXVII
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! Windows tray icon: a click opens the window, the right-click menu has Open and Quit. The icon
-//! is the SweatXR mark from the exe's icons (build.rs): lime on a dark taskbar, dark ink on a
-//! light one, swapped when Windows switches.
+//! Windows tray icon of the watch in VR, there for as long as the watch runs: a click opens the window, the
+//! right-click menu has Open, Start with SteamVR and Quit (which stops the watch). The icon is the SweatXR mark
+//! from the exe's icons (build.rs): lime on a dark taskbar, dark ink on a light one, swapped when Windows
+//! switches. The window has no icon of its own: it is on the taskbar while it is open.
 
 use std::time::{Duration, Instant};
 
-use slint::ComponentHandle;
-use sweatxr_ui::DesktopWindow;
-use tray_icon::menu::{Menu, MenuEvent, MenuItem};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 const SIZE: u32 = 32;
@@ -21,7 +20,14 @@ pub struct Tray {
     light: bool,
     checked: Instant,
     open: MenuItem,
+    autostart: CheckMenuItem,
     quit: MenuItem,
+}
+
+pub enum Cmd {
+    Open,
+    AutoStart(bool),
+    Quit,
 }
 
 /// The mark at the tray's size from the exe's icon groups 2 (lime) and 3 (ink). A build without
@@ -97,13 +103,76 @@ fn ring() -> Vec<u8> {
         .collect()
 }
 
+/// The window class winit gives its windows; with the title it tells our window from any other named SweatXR.
+const WINDOW_CLASS: &str = "Window Class";
+
+#[repr(C)]
+struct Msg {
+    hwnd: isize,
+    message: u32,
+    wparam: usize,
+    lparam: isize,
+    time: u32,
+    pt: [i32; 2],
+    private: u32,
+}
+
+#[link(name = "user32")]
+unsafe extern "system" {
+    fn PeekMessageW(msg: *mut Msg, hwnd: isize, min: u32, max: u32, remove: u32) -> i32;
+    fn TranslateMessage(msg: *const Msg) -> i32;
+    fn DispatchMessageW(msg: *const Msg) -> isize;
+    fn FindWindowW(class: *const u16, title: *const u16) -> isize;
+    fn ShowWindow(hwnd: isize, cmd: i32) -> i32;
+    fn IsIconic(hwnd: isize) -> i32;
+    fn SetForegroundWindow(hwnd: isize) -> i32;
+}
+
+/// The icon and its menu get their clicks as window messages; the watch's loop has no other reader for them.
+fn pump() {
+    const PM_REMOVE: u32 = 1;
+    // SAFETY: a zeroed MSG is valid to fill; only this thread's messages are read and handed on.
+    unsafe {
+        let mut msg: Msg = core::mem::zeroed();
+        while PeekMessageW(&raw mut msg, 0, 0, 0, PM_REMOVE) != 0 {
+            TranslateMessage(&raw const msg);
+            DispatchMessageW(&raw const msg);
+        }
+    }
+}
+
+/// Brings SweatXR's window to the front, or starts it when it is not open.
+pub fn open_window() {
+    const SW_RESTORE: i32 = 9;
+    let wide = |s: &str| s.encode_utf16().chain([0]).collect::<Vec<u16>>();
+    let (class, title) = (wide(WINDOW_CLASS), wide("SweatXR"));
+    // SAFETY: NUL-terminated strings that outlive the call; the handle is used at once, and a window that has
+    // closed since only makes the calls fail.
+    let found = unsafe {
+        let hwnd = FindWindowW(class.as_ptr(), title.as_ptr());
+        if hwnd != 0 {
+            if IsIconic(hwnd) != 0 {
+                ShowWindow(hwnd, SW_RESTORE);
+            }
+            SetForegroundWindow(hwnd);
+        }
+        hwnd != 0
+    };
+    if found {
+        return;
+    }
+    if let Err(e) = std::env::current_exe().and_then(|exe| std::process::Command::new(exe).spawn()) {
+        tracing::warn!("open SweatXR: {e}");
+    }
+}
+
 impl Tray {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(autostart: bool) -> Result<Self, Box<dyn std::error::Error>> {
         let open = MenuItem::new("Open SweatXR", true, None);
+        let autostart = CheckMenuItem::new("Start with SteamVR", true, autostart, None);
         let quit = MenuItem::new("Quit", true, None);
         let menu = Menu::new();
-        menu.append(&open)?;
-        menu.append(&quit)?;
+        menu.append_items(&[&open, &autostart, &PredefinedMenuItem::separator(), &quit])?;
         let light = light_taskbar();
         let icon = TrayIconBuilder::new()
             .with_tooltip("SweatXR")
@@ -117,6 +186,7 @@ impl Tray {
             light,
             checked: Instant::now(),
             open,
+            autostart,
             quit,
         })
     }
@@ -136,15 +206,26 @@ impl Tray {
         }
     }
 
-    /// Handles clicks since the last call. True when the player chose Quit.
-    pub fn poll(&mut self, ui: &DesktopWindow) -> bool {
+    /// Keeps the "Start with SteamVR" tick in step with the setting, wherever it was changed.
+    pub fn set_autostart(&self, on: bool) {
+        if self.autostart.is_checked() != on {
+            self.autostart.set_checked(on);
+        }
+    }
+
+    /// The next thing chosen on the icon or its menu, if any. Call every frame, until None.
+    pub fn poll(&mut self) -> Option<Cmd> {
+        pump();
         self.follow_taskbar();
         while let Ok(e) = MenuEvent::receiver().try_recv() {
             if e.id == *self.quit.id() {
-                return true;
+                return Some(Cmd::Quit);
+            }
+            if e.id == *self.autostart.id() {
+                return Some(Cmd::AutoStart(self.autostart.is_checked()));
             }
             if e.id == *self.open.id() {
-                let _ = ui.show();
+                return Some(Cmd::Open);
             }
         }
         while let Ok(e) = TrayIconEvent::receiver().try_recv() {
@@ -154,9 +235,9 @@ impl Tray {
                 ..
             } = e
             {
-                let _ = ui.show();
+                return Some(Cmd::Open);
             }
         }
-        false
+        None
     }
 }

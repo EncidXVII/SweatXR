@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! One binary, three jobs:
-//!   sweatxr                  desktop window (and tray icon on Windows)
-//!   sweatxr --overlay        the in-VR watch and panel; SteamVR starts this via the .vrmanifest
-//!                            (on Linux with Monado or WiVRn, started by hand: see `overlay::connect`)
-//!   sweatxr --register       register with SteamVR (auto-start follows the setting)
+//!   sweatxr                  desktop window
+//!   sweatxr --overlay        the in-VR watch and panel (and its tray icon on Windows); SteamVR starts this via
+//!                            the .vrmanifest (on Linux with Monado or WiVRn, started by hand: see
+//!                            `overlay::connect`)
+//!   sweatxr --register       register with SteamVR (auto-start follows the setting); with --start, a running
+//!                            SteamVR gets the watch now whatever the setting
 //!   sweatxr --uninstall      off SteamVR's list, data deleted (exports stay); see `uninstall`
 //! Overlay options: --fake-hr (scripted strap), --record FILE (pose trace), --exit-after SECS,
 //! --pin-watch (watch fixed in front of the headset, for tests without controllers).
@@ -37,18 +39,21 @@ pub struct Opts {
 enum Mode {
     Desktop,
     Overlay(Opts),
-    Register,
+    /// Whether a running SteamVR gets the watch now even with auto-start off.
+    Register(bool),
     Uninstall,
 }
 
 fn parse(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
     let mut mode = None;
     let mut opts = Opts::default();
+    let mut start = false;
     while let Some(a) = args.next() {
         match a.as_str() {
             "--overlay" => mode = Some("overlay"),
             "--register" => mode = Some("register"),
             "--uninstall" => mode = Some("uninstall"),
+            "--start" => start = true,
             "--fake-hr" => opts.fake_hr = true,
             "--pin-watch" => opts.pin_watch = true,
             "--record" => opts.record = Some(args.next().ok_or("--record needs a file")?.into()),
@@ -65,7 +70,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
     Ok(match mode {
         Some("overlay") => Mode::Overlay(opts),
         Some("uninstall") => Mode::Uninstall,
-        Some(_) => Mode::Register,
+        Some(_) => Mode::Register(start),
         None => Mode::Desktop,
     })
 }
@@ -76,7 +81,7 @@ fn main() {
     // One log per mode: the desktop app spawns `--register`, which must not truncate its log.
     let log_name = match &mode {
         Ok(Mode::Overlay(_)) => "overlay.log",
-        Ok(Mode::Register) => "register.log",
+        Ok(Mode::Register(_)) => "register.log",
         _ => "desktop.log",
     };
     // Uninstalling deletes the data folder, so it never opens a log there.
@@ -96,7 +101,7 @@ fn main() {
         match mode? {
             Mode::Desktop => desktop::run(&dirs),
             Mode::Overlay(opts) => overlay::run(&dirs, &opts),
-            Mode::Register => setup::register_utility(&dirs),
+            Mode::Register(start) => setup::register_utility(&dirs, start),
             Mode::Uninstall => uninstall::run(&dirs),
         }
     })();
@@ -120,7 +125,11 @@ mod tests {
     #[test]
     fn parses_modes() {
         assert!(matches!(parse(args("")), Ok(Mode::Desktop)));
-        assert!(matches!(parse(args("--register")), Ok(Mode::Register)));
+        assert!(matches!(parse(args("--register")), Ok(Mode::Register(false))));
+        assert!(matches!(
+            parse(args("--register --start")),
+            Ok(Mode::Register(true))
+        ));
         assert!(matches!(parse(args("--uninstall")), Ok(Mode::Uninstall)));
         let Ok(Mode::Overlay(o)) = parse(args("--overlay --fake-hr --exit-after 30")) else {
             panic!("overlay")

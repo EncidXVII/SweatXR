@@ -284,6 +284,15 @@ impl App {
         }
     }
 
+    /// "Start with SteamVR" ticked or cleared on the tray icon.
+    #[cfg(windows)]
+    pub fn set_auto_start(&mut self, on: bool) {
+        self.save(Profile {
+            auto_start: on,
+            ..self.fresh()
+        });
+    }
+
     /// The overlay calls this when the player lets go of the watch after moving it on the wrist (None: it was put
     /// back on its default spot).
     pub fn set_watch_pose(&mut self, pose: Option<(sweatxr_core::profile::Hand, [f32; 12])>) {
