@@ -455,6 +455,8 @@ pub struct Vr {
 /// Utility apps may not ask for anything else. Shuts down on drop.
 pub struct Apps {
     t: &'static IVRApplicationsFn,
+    /// Overlays, where the connection may ask about them (a utility app may not).
+    overlay: Option<&'static IVROverlayFn>,
     shutdown: ShutdownFn,
 }
 
@@ -517,6 +519,10 @@ impl Apps {
             // SAFETY: the table stays valid until VR_ShutdownInternal, which only Drop calls.
             Ok(t) => Ok(Self {
                 t: unsafe { &*t.cast() },
+                // SAFETY: as the table above.
+                overlay: fn_table(interface, tables::IVROVERLAY)
+                    .ok()
+                    .map(|o| unsafe { &*o.cast() }),
                 shutdown,
             }),
             Err(e) => {
@@ -597,6 +603,16 @@ impl Apps {
         check("SetApplicationAutoLaunch", unsafe {
             (self.t.SetApplicationAutoLaunch)(k.as_ptr(), on)
         })
+    }
+
+    /// Whether an overlay with this key exists right now: the sure sign that the app which makes it runs.
+    pub fn overlay_exists(&self, key: &str) -> bool {
+        let (Some(o), Ok(k)) = (self.overlay, cstr("FindOverlay", key)) else {
+            return false;
+        };
+        let mut handle = 0u64;
+        // SAFETY: valid C string and out pointer; an unknown key only returns an error code.
+        unsafe { (o.FindOverlay)(k.as_ptr(), &mut handle) == 0 }
     }
 
     /// Whether this app's process is there, other than the one asking. SteamVR takes any process started from the

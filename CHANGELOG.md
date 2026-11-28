@@ -4,6 +4,12 @@ All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- Opening SweatXR while the watch already runs no longer starts a second watch process. The second one found the
+  watch taken and left at once, but it had replaced the watch's log by then.
+
 ## [0.8.2] - 2026-11-28
 
 ### Changed

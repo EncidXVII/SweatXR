@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use sweatxr_vr::{AppKind, Apps, ERR_NO_SERVER};
 
 pub const APP_KEY: &str = "local.sweatxr.overlay";
+/// The watch's overlay. While it exists, the overlay process runs.
+pub const WATCH_KEY: &str = "sweatxr.watch";
 pub const ACTION_SET: &str = "/actions/main";
 pub const ACTION_SELECT: &str = "/actions/main/in/select";
 pub const ACTION_HAPTIC: &str = "/actions/main/out/haptic";
@@ -165,7 +167,7 @@ pub fn register_utility(dirs: &Dirs, start: bool) -> Result<(), Box<dyn Error>> 
             register(&apps, dirs, auto_start)?;
             if !auto_start && !start {
                 tracing::info!("registered with SteamVR; auto-start is off, overlay not started");
-            } else if apps.running(APP_KEY) {
+            } else if apps.overlay_exists(WATCH_KEY) || apps.running(APP_KEY) {
                 tracing::info!("registered with SteamVR; overlay already running");
             } else if apps.launch(APP_KEY)? {
                 tracing::info!("registered with SteamVR and started the overlay");

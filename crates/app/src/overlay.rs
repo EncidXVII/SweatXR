@@ -276,7 +276,7 @@ pub fn run(dirs: &Dirs, opts: &Opts) -> Result<(), Box<dyn Error>> {
     let b = buzz.clone();
     fb.on_press(move || b.set(Some(Buzz::Press)));
 
-    let ov_watch = vr.create_overlay("sweatxr.watch", "SweatXR watch")?;
+    let ov_watch = vr.create_overlay(setup::WATCH_KEY, "SweatXR watch")?;
     let ov_panel = vr.create_overlay("sweatxr.panel", "SweatXR")?;
     vr.set_width(ov_watch, WATCH_WIDTH_M)?;
     vr.set_width(ov_panel, PANEL_WIDTH_M)?;
